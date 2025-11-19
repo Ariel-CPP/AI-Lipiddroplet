@@ -2,109 +2,117 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8" />
-  <title>AI Lipid Droplet Analyzer</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Lipid Droplet AI – Hepatopankreas Udang</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div class="app-container">
-    <header class="app-header">
-      <div>
-        <h1>AI Lipid Droplet Analyzer</h1>
-        <p class="subtitle">
-          Web-based tool untuk estimasi persentase lipid droplet dari wet mount hepatopankreas udang.
+  <header class="app-header">
+    <div class="app-title">
+      <h1>Lipid Droplet AI</h1>
+      <p>Estimasi persentase lipid droplet dari wet mount hepatopankreas udang</p>
+    </div>
+    <div class="app-meta">
+      <div class="badge">
+        <span class="badge-label">Total gambar terlatih</span>
+        <span class="badge-value" id="sample-count">0</span>
+      </div>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab-button active" data-tab="training-panel">Training</button>
+    <button class="tab-button" data-tab="analysis-panel">Analisa</button>
+  </nav>
+
+  <main class="app-main">
+    <!-- PANEL TRAINING -->
+    <section id="training-panel" class="panel active">
+      <div class="panel-header">
+        <h2>Training Model</h2>
+        <p>
+          Unggah gambar wet mount hepatopankreas, lalu isi persentase lipid droplet (%) untuk <strong>setiap gambar</strong>.
+          Sistem akan mengekstrak fitur sederhana dari citra dan menambahkannya ke dataset.
         </p>
       </div>
-      <div class="stats-card">
-        <div class="stat-item">
-          <span class="stat-label">Total gambar terlatih</span>
-          <span class="stat-value" id="total-trained">0</span>
-        </div>
-        <div class="stat-item">
-          <span class="stat-label">Sampel training tersimpan</span>
-          <span class="stat-value" id="total-samples">0</span>
-        </div>
-        <div class="stat-item">
-          <span class="stat-label">Update terakhir</span>
-          <span class="stat-value" id="last-updated">-</span>
+
+      <div class="card">
+        <div class="card-body">
+          <div class="form-group">
+            <label for="training-files">Pilih gambar untuk training (bisa lebih dari satu):</label>
+            <input
+              type="file"
+              id="training-files"
+              accept="image/*"
+              multiple
+            />
+          </div>
+
+          <div id="training-preview-container" class="image-list">
+            <!-- item per gambar training akan muncul di sini -->
+          </div>
+
+          <div class="actions">
+            <button id="train-button" class="primary-button">
+              Simpan & Latih Model
+            </button>
+            <span id="training-status" class="status-text"></span>
+          </div>
         </div>
       </div>
-    </header>
+    </section>
 
-    <nav class="tab-nav">
-      <button class="tab-button active" data-tab="training-tab">Training</button>
-      <button class="tab-button" data-tab="analysis-tab">Analisa</button>
-    </nav>
+    <!-- PANEL ANALISIS -->
+    <section id="analysis-panel" class="panel">
+      <div class="panel-header">
+        <h2>Analisa Gambar</h2>
+        <p>
+          Unggah satu atau beberapa gambar untuk diprediksi persentase lipid droplet-nya
+          berdasarkan dataset training yang sudah ada (KNN sederhana).
+        </p>
+      </div>
 
-    <main class="tab-container">
-      <!-- TRAINING TAB -->
-      <section id="training-tab" class="tab-content active">
-        <div class="panel">
-          <h2>Training Model</h2>
-          <p class="panel-description">
-            Upload beberapa gambar wet mount hepatopankreas udang, lalu masukkan
-            persentase lipid droplet untuk setiap gambar sebagai data ground truth.
-            Sistem akan melatih model regresi sederhana berbasis fitur visual.
-          </p>
-
-          <div class="upload-section">
-            <label class="file-label">
-              <span>Pilih gambar training (bisa beberapa sekaligus)</span>
-              <input type="file" id="train-images" accept="image/*" multiple />
-            </label>
+      <div class="card">
+        <div class="card-body">
+          <div class="form-group">
+            <label for="analysis-files">Pilih gambar untuk analisa:</label>
+            <input
+              type="file"
+              id="analysis-files"
+              accept="image/*"
+              multiple
+            />
           </div>
 
-          <div id="train-preview-container" class="image-grid"></div>
-
-          <div class="actions-row">
-            <button id="clear-train-preview" class="btn secondary">
-              Bersihkan daftar
+          <div class="actions">
+            <button id="analyze-button" class="primary-button">
+              Analisa Gambar
             </button>
-            <button id="start-training" class="btn primary">
-              Latih Model
-            </button>
+            <span id="analysis-status" class="status-text"></span>
           </div>
-
-          <div id="train-status" class="status-message"></div>
         </div>
-      </section>
+      </div>
 
-      <!-- ANALYSIS TAB -->
-      <section id="analysis-tab" class="tab-content">
-        <div class="panel">
-          <h2>Analisa Gambar</h2>
-          <p class="panel-description">
-            Upload satu atau beberapa gambar hepatopankreas udang. Sistem akan
-            menggunakan model yang sudah dilatih untuk mengestimasi persentase
-            lipid droplet (% area).
-          </p>
-
-          <div class="upload-section">
-            <label class="file-label">
-              <span>Pilih gambar untuk analisa</span>
-              <input type="file" id="analysis-images" accept="image/*" multiple />
-            </label>
+      <div class="card">
+        <div class="card-body">
+          <h3>Hasil Analisa</h3>
+          <div id="analysis-results" class="image-list">
+            <!-- hasil analisa per gambar -->
           </div>
-
-          <div class="actions-row">
-            <button id="run-analysis" class="btn primary">
-              Jalankan Analisa
-            </button>
-          </div>
-
-          <div id="analysis-warning" class="warning-message hidden">
-            Belum ada model yang terlatih. Silakan lakukan training terlebih dahulu.
-          </div>
-
-          <div id="analysis-results" class="image-grid"></div>
         </div>
-      </section>
-    </main>
-  </div>
+      </div>
+    </section>
+  </main>
 
-  <!-- Kanvas tersembunyi untuk ekstraksi fitur -->
-  <canvas id="feature-canvas" class="hidden"></canvas>
+  <footer class="app-footer">
+    <small>
+      Prototype berbasis web &mdash; model sederhana (KNN + fitur intensitas citra).
+      Untuk penggunaan riset serius, disarankan dilakukan validasi dan kalibrasi tambahan.
+    </small>
+  </footer>
 
-  <script src="script.js"></script>
+  <script src="storage.js"></script>
+  <script src="model.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
