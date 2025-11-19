@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Lipid Droplet AI – Analysis</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body data-page="analyze" class="page-analyze">
+  <header class="top-bar">
+    <div class="brand">
+      <div class="brand-logo">CP</div>
+      <div class="brand-text">
+        <span class="brand-title">Lipid Droplet AI</span>
+        <span class="brand-subtitle">Hepatopancreas Wet Mount Assistant</span>
+      </div>
+    </div>
+    <nav class="main-nav">
+      <a href="index.html" class="nav-link">Training</a>
+      <a href="analysis.html" class="nav-link active">Analysis</a>
+    </nav>
+  </header>
+
+  <main class="page-container">
+    <section class="card hero-card">
+      <h1>Analysis Interface</h1>
+      <p>
+        Load the current model (either trained locally or imported from a JSON
+        database) and apply it to new hepatopancreas wet mount images. The tool
+        will estimate the lipid droplet percentage for each image.
+      </p>
+      <div class="hero-stats">
+        <div class="stat-item">
+          <span class="stat-label">Model status</span>
+          <span id="analysis-model-status" class="stat-value small"></span>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>1. Upload Images for Analysis</h2>
+      <p class="section-description">
+        Select one or more images. The model will process each image and return
+        an estimated lipid droplet percentage.
+      </p>
+
+      <div class="form-row">
+        <label for="analysis-images" class="button primary">
+          Select images for analysis
+          <input id="analysis-images" type="file" accept="image/*" multiple hidden />
+        </label>
+        <span id="analysis-file-count" class="hint-text">No files selected.</span>
+      </div>
+
+      <div class="form-row align-right">
+        <button id="analyze-button" class="button primary">Run analysis</button>
+      </div>
+
+      <p id="analysis-status" class="status-text"></p>
+    </section>
+
+    <section class="card">
+      <h2>2. Results</h2>
+      <p class="section-description">
+        The table below lists each analyzed image, its file name, and the predicted
+        lipid droplet percentage. Values are based on the current model.
+      </p>
+
+      <div class="results-table-wrapper">
+        <table class="results-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Preview</th>
+              <th>File name</th>
+              <th>Predicted lipid droplet (%)</th>
+            </tr>
+          </thead>
+          <tbody id="analysis-results">
+            <!-- Filled dynamically -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <span>© 2025 CP Prima – Experimental Tool for Shrimp Hepatopancreas Lipid Assessment</span>
+  </footer>
+
+  <script src="model.js" defer></script>
+  <script src="storage.js" defer></script>
+  <script src="app.js" defer></script>
+</body>
+</html>
