@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>CP Prima – Lipid Droplet Analysis</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="icon" href="favicon.ico" />
+</head>
+<body data-page="analysis">
+  <header class="cp-header">
+    <div class="cp-header-inner">
+      <div class="cp-brand">
+        <div class="cp-logo-circle">CP</div>
+        <div class="cp-brand-text">
+          <div class="cp-brand-name">CP Prima Lab Tools</div>
+          <div class="cp-brand-subtitle">Hepatopancreas Lipid Droplet AI</div>
+        </div>
+      </div>
+      <nav class="cp-nav">
+        <a href="index.html" class="cp-nav-link">Training</a>
+        <a href="analysis.html" class="cp-nav-link cp-nav-link-active">Analysis</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="cp-main">
+    <section class="cp-hero cp-hero-small">
+      <div class="cp-hero-text">
+        <h1 class="cp-hero-title">Batch Image Analysis</h1>
+        <p class="cp-hero-description">
+          Load the in-browser model (or first import a JSON database on the Training page),
+          then analyse multiple hepatopancreas wet mount images at once. The tool will
+          estimate the lipid droplet percentage for each file.
+        </p>
+      </div>
+    </section>
+
+    <section class="cp-section">
+      <div class="cp-card">
+        <div class="cp-field-group">
+          <label class="cp-field-label">Images to analyse</label>
+          <div class="cp-file-row">
+            <input
+              type="file"
+              id="analysisImagesInput"
+              accept="image/*"
+              multiple
+              class="cp-file-input"
+            />
+            <label for="analysisImagesInput" class="cp-btn cp-btn-outline">
+              Choose images
+            </label>
+            <span class="cp-file-label" id="analysisImagesLabel">No files selected</span>
+          </div>
+        </div>
+
+        <button id="runAnalysisButton" class="cp-btn cp-btn-primary">
+          Run analysis
+        </button>
+
+        <p id="analysisStatus" class="cp-helper-text">
+          Model must be trained or loaded from JSON on the Training page.
+        </p>
+      </div>
+    </section>
+
+    <section class="cp-section">
+      <h2 class="cp-section-title">Results</h2>
+      <div class="cp-card">
+        <div class="cp-table-wrapper">
+          <table class="cp-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Filename</th>
+                <th>Predicted lipid droplet (%)</th>
+              </tr>
+            </thead>
+            <tbody id="resultsTableBody">
+              <!-- Filled by JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="cp-footer">
+    © 2025 CP Prima – Experimental Tool for Shrimp Hepatopancreas Lipid Assessment
+  </footer>
+
+  <script src="model.js"></script>
+  <script src="storage.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
