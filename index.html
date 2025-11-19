@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Lipid Droplet Analyzer - Shrimp Hepatopancreas</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- TensorFlow.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header>
+    <h1>Lipid Droplet Analyzer</h1>
+    <p>Web-based AI for lipid droplet percentage estimation in shrimp hepatopancreas wet mount images.</p>
+  </header>
+
+  <nav>
+    <button id="tab-training" class="tab-button active">Training</button>
+    <button id="tab-analysis" class="tab-button">Analysis</button>
+  </nav>
+
+  <main>
+    <!-- TRAINING PANEL -->
+    <section id="training-panel" class="panel active">
+      <h2>Training</h2>
+      <p>
+        Upload wet mount hepatopancreas images with known lipid droplet percentage to train the model.
+      </p>
+
+      <div class="card">
+        <h3>1. Tambah Data Training</h3>
+        <label for="train-image-input">Gambar training (JPG/PNG):</label>
+        <input type="file" id="train-image-input" accept="image/*" />
+
+        <label for="train-label-input">Persentase lipid droplet (%):</label>
+        <input type="number" id="train-label-input" min="0" max="100" step="0.1" />
+
+        <button id="add-training-sample">Tambah ke Dataset</button>
+
+        <div id="train-image-preview-wrapper">
+          <p>Preview gambar:</p>
+          <canvas id="train-image-preview" width="128" height="128"></canvas>
+        </div>
+
+        <p id="train-dataset-info">Dataset: 0 sampel</p>
+      </div>
+
+      <div class="card">
+        <h3>2. Latih Model</h3>
+        <label for="train-epochs-input">Jumlah epoch:</label>
+        <input type="number" id="train-epochs-input" value="20" min="1" max="200" />
+
+        <label for="train-batch-size-input">Batch size:</label>
+        <input type="number" id="train-batch-size-input" value="8" min="1" max="64" />
+
+        <button id="train-model-btn">Train Model</button>
+        <button id="save-model-btn">Save Model</button>
+        <button id="load-model-btn">Load Model</button>
+
+        <pre id="train-log"></pre>
+      </div>
+    </section>
+
+    <!-- ANALYSIS PANEL -->
+    <section id="analysis-panel" class="panel">
+      <h2>Analysis</h2>
+      <p>
+        Upload wet mount hepatopancreas image and let the trained model estimate lipid droplet percentage.
+      </p>
+
+      <div class="card">
+        <h3>1. Gambar untuk Analisa</h3>
+        <label for="analysis-image-input">Gambar (JPG/PNG):</label>
+        <input type="file" id="analysis-image-input" accept="image/*" />
+
+        <div id="analysis-image-preview-wrapper">
+          <p>Preview gambar:</p>
+          <canvas id="analysis-image-preview" width="128" height="128"></canvas>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>2. Hasil Prediksi</h3>
+        <button id="run-analysis-btn">Jalankan Analisa</button>
+        <p id="analysis-result">Belum ada hasil.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <small>
+      All computation runs in your browser using TensorFlow.js. No images are uploaded to any server.
+    </small>
+  </footer>
+
+  <!-- Scripts -->
+  <script src="model.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
