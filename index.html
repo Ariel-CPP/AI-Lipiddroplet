@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>CP Prima – Lipid Droplet AI Training</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="icon" href="favicon.ico" />
+</head>
+<body data-page="training">
+  <!-- Top navigation / hero bar -->
+  <header class="cp-header">
+    <div class="cp-header-inner">
+      <div class="cp-brand">
+        <div class="cp-logo-circle">CP</div>
+        <div class="cp-brand-text">
+          <div class="cp-brand-name">CP Prima Lab Tools</div>
+          <div class="cp-brand-subtitle">Hepatopancreas Lipid Droplet AI</div>
+        </div>
+      </div>
+      <nav class="cp-nav">
+        <a href="index.html" class="cp-nav-link cp-nav-link-active">Training</a>
+        <a href="analysis.html" class="cp-nav-link">Analysis</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="cp-main">
+    <section class="cp-hero">
+      <div class="cp-hero-text">
+        <h1 class="cp-hero-title">Lipid Droplet Training</h1>
+        <p class="cp-hero-description">
+          Upload hepatopancreas wet mount images, assign lipid droplet percentages, and
+          gradually build an in-browser neural model that can be shared as a JSON database.
+        </p>
+      </div>
+      <div class="cp-hero-stats">
+        <div class="cp-stat-card">
+          <span class="cp-stat-label">Total trained images</span>
+          <span class="cp-stat-value" id="totalTrainedImages">0</span>
+        </div>
+        <div class="cp-stat-card">
+          <span class="cp-stat-label">Model status</span>
+          <span class="cp-stat-pill" id="modelStatus">Not trained</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="cp-section">
+      <h2 class="cp-section-title">1. Upload Training Images</h2>
+      <p class="cp-section-description">
+        Select one or more hepatopancreas wet mount images. For each image you will be asked
+        to provide the ground-truth lipid droplet percentage (0–100%) based on your
+        histological assessment.
+      </p>
+
+      <div class="cp-card">
+        <div class="cp-field-group">
+          <label class="cp-field-label">Training images</label>
+          <div class="cp-file-row">
+            <input
+              type="file"
+              id="trainImagesInput"
+              accept="image/*"
+              multiple
+              class="cp-file-input"
+            />
+            <label for="trainImagesInput" class="cp-btn cp-btn-outline">
+              Choose images
+            </label>
+            <span class="cp-file-label" id="trainImagesLabel">No files selected</span>
+          </div>
+        </div>
+
+        <button id="trainButton" class="cp-btn cp-btn-primary">
+          Train on selected images
+        </button>
+
+        <p class="cp-helper-text">
+          You can select multiple images at once. The tool will ask for the lipid droplet
+          percentage for each image.
+        </p>
+
+        <div id="trainingLog" class="cp-log"></div>
+      </div>
+    </section>
+
+    <section class="cp-section">
+      <h2 class="cp-section-title">2. Model Database</h2>
+      <p class="cp-section-description">
+        The trained model and its metadata are kept only in your browser. You can export them
+        as a JSON file to share with colleagues, and load JSON files from others to reuse the
+        same trained database.
+      </p>
+
+      <div class="cp-grid-2">
+        <!-- Download -->
+        <div class="cp-card">
+          <h3 class="cp-card-title">Download database</h3>
+          <p class="cp-card-text">
+            Export the current neural model and training statistics as a JSON file.
+          </p>
+          <button id="downloadDbButton" class="cp-btn cp-btn-gold">
+            Download JSON database
+          </button>
+        </div>
+
+        <!-- Upload -->
+        <div class="cp-card">
+          <h3 class="cp-card-title">Upload database</h3>
+          <p class="cp-card-text">
+            Import a JSON database to reuse a model that was trained on another computer.
+          </p>
+          <div class="cp-file-row">
+            <input
+              type="file"
+              id="uploadDbInput"
+              accept="application/json"
+              class="cp-file-input"
+            />
+            <label for="uploadDbInput" class="cp-btn cp-btn-outline">
+              Choose JSON file
+            </label>
+            <span class="cp-file-label" id="uploadDbLabel">No file selected</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="cp-footer">
+    © 2025 CP Prima – Experimental Tool for Shrimp Hepatopancreas Lipid Assessment
+  </footer>
+
+  <script src="model.js"></script>
+  <script src="storage.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
