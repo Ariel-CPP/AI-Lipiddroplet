@@ -2,109 +2,114 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Lipid Droplet AI – Training</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CP Lipid Droplet AI – Training</title>
   <link rel="stylesheet" href="style.css" />
 </head>
-<body data-page="train" class="page-train">
-  <header class="top-bar">
-    <div class="brand">
-      <div class="brand-logo">CP</div>
-      <div class="brand-text">
-        <span class="brand-title">Lipid Droplet AI</span>
-        <span class="brand-subtitle">Hepatopancreas Wet Mount Assistant</span>
+<body data-page="training">
+  <header class="cp-header">
+    <div class="cp-header-inner">
+      <div class="cp-logo">
+        <span class="cp-logo-mark">CP</span>
+        <span class="cp-logo-text">Lipid Droplet AI</span>
       </div>
+      <nav class="cp-nav">
+        <a href="index.html" class="cp-nav-link cp-nav-link-active">Training</a>
+        <a href="analysis.html" class="cp-nav-link">Analysis</a>
+      </nav>
     </div>
-    <nav class="main-nav">
-      <a href="index.html" class="nav-link active">Training</a>
-      <a href="analysis.html" class="nav-link">Analysis</a>
-    </nav>
   </header>
 
-  <main class="page-container">
-    <section class="card hero-card">
-      <h1>Training Interface</h1>
+  <main class="cp-main">
+    <section class="cp-hero">
+      <h1>Lipid Droplet Training Interface</h1>
       <p>
-        Upload wet mount hepatopancreas images and assign known lipid droplet percentages.
-        The model will be updated in your browser and can be exported/imported as a JSON
-        database that you can share with other users.
+        Upload wet mount hepatopancreas images, assign known lipid droplet percentages,
+        and iteratively train the browser-based model. The model and its database can
+        be exported and shared with other users.
       </p>
-      <div class="hero-stats">
-        <div class="stat-item">
-          <span class="stat-label">Total trained images</span>
-          <span id="trained-count" class="stat-value">0</span>
-        </div>
-        <div class="stat-item">
-          <span class="stat-label">Model info</span>
-          <span id="db-info" class="stat-value small"></span>
-        </div>
-      </div>
     </section>
 
-    <section class="card">
-      <h2>1. Upload Training Images</h2>
-      <p class="section-description">
-        Select one or more images. For each image, provide the ground-truth lipid droplet
-        percentage (0–100%) based on your histological assessment.
-      </p>
+    <section class="cp-grid">
+      <!-- Training card -->
+      <article class="cp-card">
+        <h2>1. Upload Training Images</h2>
+        <p class="cp-muted">
+          Select one or more images. For each image, provide the ground-truth lipid
+          droplet percentage (0–100%) based on your histological assessment.
+        </p>
 
-      <div class="form-row">
-        <label for="train-images" class="button primary">
-          Select training images
-          <input id="train-images" type="file" accept="image/*" multiple hidden />
-        </label>
-        <span id="train-file-count" class="hint-text">No files selected.</span>
-      </div>
+        <div class="cp-form-group">
+          <label for="training-files" class="cp-label">Select training images</label>
+          <input
+            id="training-files"
+            type="file"
+            accept="image/*"
+            multiple
+            class="cp-input-file"
+          />
+        </div>
 
-      <div id="training-list" class="training-grid">
-        <!-- Dynamically filled with image previews + percentage inputs -->
-      </div>
+        <div id="training-preview-container" class="preview-list">
+          <!-- Per-image rows (thumbnail + filename + % input) will be injected here -->
+        </div>
 
-      <div class="form-row align-right">
-        <button id="train-button" class="button primary">Train model on selected images</button>
-      </div>
+        <button id="train-button" class="cp-button primary" disabled>
+          Train model on selected images
+        </button>
 
-      <p id="train-status" class="status-text"></p>
-    </section>
+        <div class="cp-status">
+          <div><strong>Total trained images:</strong> <span id="total-trained">0</span></div>
+          <div><strong>Model info:</strong> <span id="model-info">Not trained yet</span></div>
+        </div>
+      </article>
 
-    <section class="card">
-      <h2>2. Model Database</h2>
-      <p class="section-description">
-        The model and its metadata are stored locally in your browser. You can
-        export the database as a JSON file and share it with other users, who
-        can then import it to obtain the same trained model.
-      </p>
+      <!-- Database card -->
+      <article class="cp-card">
+        <h2>2. Model Database</h2>
+        <p class="cp-muted">
+          The trained model and metadata are stored locally in your browser. You can export the
+          database as a JSON file and share it via e-mail or any other channel. Other users can
+          then import the same database to obtain an identical model.
+        </p>
 
-      <div class="db-actions">
-        <div class="db-column">
+        <div class="cp-subcard">
           <h3>Download database</h3>
-          <p class="hint-text">
-            Exports the current neural model and statistics as a JSON file.
+          <p class="cp-muted">
+            Export the current neural network database as a JSON file.
           </p>
-          <button id="download-db" class="button secondary">Download JSON database</button>
+          <button id="download-db-button" class="cp-button secondary">
+            Download JSON database
+          </button>
         </div>
 
-        <div class="db-column">
+        <div class="cp-subcard">
           <h3>Upload database</h3>
-          <p class="hint-text">
-            Import a database JSON file from another user to reuse the same trained model.
+          <p class="cp-muted">
+            Import a JSON database file from another user to reuse the same trained model.
           </p>
-          <label for="upload-db" class="button outline">
-            Select JSON file
-            <input id="upload-db" type="file" accept="application/json" hidden />
-          </label>
-          <p id="upload-db-status" class="status-text small"></p>
+          <div class="cp-form-group-inline">
+            <input
+              id="upload-db-input"
+              type="file"
+              accept="application/json"
+              class="cp-input-file"
+            />
+            <button id="upload-db-button" class="cp-button secondary">
+              Load database
+            </button>
+          </div>
+          <p id="upload-db-status" class="cp-small-status"></p>
         </div>
-      </div>
+      </article>
     </section>
   </main>
 
-  <footer class="footer">
-    <span>© 2025 CP Prima – Experimental Tool for Shrimp Hepatopancreas Lipid Assessment</span>
+  <footer class="cp-footer">
+    © 2025 CP Prima – Experimental Tool for Shrimp Hepatopancreas Lipid Assessment
   </footer>
 
-  <script src="model.js" defer></script>
-  <script src="storage.js" defer></script>
-  <script src="app.js" defer></script>
+  <script src="model.js"></script>
+  <script src="storage.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
