@@ -1,256 +1,317 @@
-// js/app.js
-// Menghubungkan UI dengan storage & model
+// app.js
+// Menghubungkan UI, Storage, dan Model
 
 document.addEventListener("DOMContentLoaded", () => {
-  const statSampleCount = document.getElementById("stat-sample-count");
-  const statModelStatus = document.getElementById("stat-model-status");
+  // --- ELEMEN DOM ---
+  const sampleCountEl = document.getElementById("sample-count");
 
+  // Tabs
   const tabButtons = document.querySelectorAll(".tab-button");
-  const tabContents = document.querySelectorAll(".tab-content");
+  const panels = document.querySelectorAll(".panel");
 
-  const trainImagesInput = document.getElementById("train-images");
-  const trainLabelInput = document.getElementById("train-label");
-  const btnAddToDataset = document.getElementById("btn-add-to-dataset");
-  const trainAddStatus = document.getElementById("train-add-status");
-  const datasetSummary = document.getElementById("dataset-summary");
+  // Training
+  const trainingFilesInput = document.getElementById("training-files");
+  const trainingPreviewContainer = document.getElementById("training-preview-container");
+  const trainButton = document.getElementById("train-button");
+  const trainingStatus = document.getElementById("training-status");
 
-  const epochsInput = document.getElementById("epochs");
-  const batchSizeInput = document.getElementById("batch-size");
-  const btnTrainModel = document.getElementById("btn-train-model");
-  const trainingLog = document.getElementById("training-log");
-
-  const btnClearDataset = document.getElementById("btn-clear-dataset");
-  const clearStatus = document.getElementById("clear-status");
-
-  const analysisImagesInput = document.getElementById("analysis-images");
-  const btnRunAnalysis = document.getElementById("btn-run-analysis");
+  // Analysis
+  const analysisFilesInput = document.getElementById("analysis-files");
+  const analyzeButton = document.getElementById("analyze-button");
   const analysisStatus = document.getElementById("analysis-status");
-  const analysisResultsBody = document.getElementById("analysis-results-body");
+  const analysisResultsContainer = document.getElementById("analysis-results");
 
-  let currentModel = null;
+  // --- STATE ---
+  let trainingFiles = []; // { id, file }
+  let analysisFiles = []; // { id, file }
 
-  // === Tabs handling ===
-  tabButtons.forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const targetId = btn.dataset.target;
-      tabButtons.forEach((b) => b.classList.remove("active"));
-      btn.classList.add("active");
-      tabContents.forEach((c) => {
-        c.classList.toggle("active", c.id === targetId);
-      });
+  // --- INIT: load dataset dari storage ---
+  const initialSamples = LipidStorage.loadSamples();
+  LipidModel.setSamples(initialSamples);
+  updateSampleCountDisplay();
+
+  // --- FUNGSI UTILITAS UI ---
+
+  function updateSampleCountDisplay() {
+    const count = LipidStorage.getSampleCount();
+    sampleCountEl.textContent = count;
+  }
+
+  function clearChildren(el) {
+    while (el.firstChild) {
+      el.removeChild(el.firstChild);
+    }
+  }
+
+  function switchTab(targetId) {
+    panels.forEach((p) => {
+      p.classList.toggle("active", p.id === targetId);
     });
-  });
-
-  // === Stats ===
-  function refreshStats() {
-    const stats = window.LipidStorage.getStats();
-    statSampleCount.textContent = stats.count;
-
-    if (currentModel) {
-      statModelStatus.textContent = "Model tersedia di browser";
-    } else {
-      statModelStatus.textContent = "Belum ada model";
-    }
-
-    updateDatasetSummary();
+    tabButtons.forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.tab === targetId);
+    });
   }
 
-  function updateDatasetSummary() {
-    const dataset = window.LipidStorage.loadDataset();
-    if (dataset.length === 0) {
-      datasetSummary.textContent = "Belum ada sampel training tersimpan.";
-      return;
-    }
+  // --- RENDER TRAINING PREVIEW ---
 
-    const first = dataset[0];
-    const last = dataset[dataset.length - 1];
+  function renderTrainingPreview() {
+    clearChildren(trainingPreviewContainer);
+    if (trainingFiles.length === 0) return;
 
-    const labels = dataset.map((d) => Number(d.label));
-    const minLabel = Math.min(...labels);
-    const maxLabel = Math.max(...labels);
+    trainingFiles.forEach((item) => {
+      const card = document.createElement("div");
+      card.className = "image-card";
+      card.dataset.id = item.id;
 
-    datasetSummary.innerHTML = `
-      <p>Total sampel: <strong>${dataset.length}</strong></p>
-      <p>Rentang label lipid droplet: <strong>${minLabel.toFixed(
-        1
-      )}% – ${maxLabel.toFixed(1)}%</strong></p>
-      <p>Contoh file pertama: <code>${first.name}</code></p>
-      <p>Contoh file terakhir: <code>${last.name}</code></p>
-    `;
-  }
+      const thumbWrapper = document.createElement("div");
+      thumbWrapper.className = "image-thumb-wrapper";
 
-  // === Load model jika ada ===
-  async function tryLoadModel() {
-    currentModel = await window.LipidModel.loadExistingModel();
-    refreshStats();
-  }
+      const img = document.createElement("img");
+      img.className = "image-thumb";
+      img.alt = item.file.name;
 
-  // === Helper: baca file gambar jadi dataURL ===
-  function fileToDataUrl(file) {
-    return new Promise((resolve, reject) => {
+      // Preview image
       const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
+      reader.onload = (e) => {
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(item.file);
+
+      thumbWrapper.appendChild(img);
+
+      const filename = document.createElement("div");
+      filename.className = "image-filename";
+      filename.textContent = item.file.name;
+
+      const meta = document.createElement("div");
+      meta.className = "image-meta";
+
+      const label = document.createElement("label");
+      label.textContent = "Lipid droplet (%)";
+
+      const input = document.createElement("input");
+      input.type = "number";
+      input.min = "0";
+      input.max = "100";
+      input.step = "0.1";
+      input.placeholder = "misal 35.2";
+      input.dataset.percentFor = item.id;
+
+      meta.appendChild(label);
+      meta.appendChild(input);
+
+      card.appendChild(thumbWrapper);
+      card.appendChild(filename);
+      card.appendChild(meta);
+
+      trainingPreviewContainer.appendChild(card);
     });
   }
 
-  // === Tambah batch gambar ke dataset ===
-  btnAddToDataset.addEventListener("click", async () => {
-    const files = Array.from(trainImagesInput.files || []);
-    const labelValue = Number(trainLabelInput.value);
+  // --- EVENT: perubahan file training ---
 
-    if (files.length === 0) {
-      trainAddStatus.textContent = "Silakan pilih minimal satu gambar.";
-      return;
-    }
-    if (isNaN(labelValue) || labelValue < 0 || labelValue > 100) {
-      trainAddStatus.textContent =
-        "Label persentase lipid droplet harus antara 0–100.";
-      return;
-    }
-
-    btnAddToDataset.disabled = true;
-    trainAddStatus.textContent = "Membaca file dan menyimpan ke dataset...";
-
-    const samples = [];
-    for (let i = 0; i < files.length; i++) {
-      /* eslint-disable no-await-in-loop */
-      const dataUrl = await fileToDataUrl(files[i]);
-      /* eslint-enable no-await-in-loop */
-      samples.push({
-        id: Date.now().toString() + "_" + i,
-        name: files[i].name,
-        label: labelValue,
-        dataUrl,
-      });
-    }
-
-    const newCount = window.LipidStorage.addSamples(samples);
-    trainAddStatus.textContent = `Berhasil menambah ${samples.length} sampel. Total sampel sekarang: ${newCount}.`;
-
-    trainImagesInput.value = "";
-    refreshStats();
-    btnAddToDataset.disabled = false;
+  trainingFilesInput.addEventListener("change", (e) => {
+    const files = Array.from(e.target.files || []);
+    trainingFiles = files.map((f, idx) => ({
+      id: `train_${Date.now()}_${idx}`,
+      file: f,
+    }));
+    renderTrainingPreview();
+    trainingStatus.textContent = files.length
+      ? `Dipilih ${files.length} gambar untuk training. Isi persentase masing-masing lalu klik "Simpan & Latih Model".`
+      : "";
   });
 
-  // === Training model ===
-  btnTrainModel.addEventListener("click", async () => {
-    const dataset = window.LipidStorage.loadDataset();
-    if (dataset.length === 0) {
-      trainingLog.textContent =
-        "Dataset kosong. Tambahkan sampel training terlebih dahulu.";
+  // --- PROSES TRAINING ---
+
+  async function handleTraining() {
+    if (trainingFiles.length === 0) {
+      trainingStatus.textContent = "Tidak ada gambar untuk training.";
       return;
     }
 
-    const epochs = Math.max(
-      1,
-      Math.min(200, Number(epochsInput.value) || 20)
-    );
-    const batchSize = Math.max(
-      1,
-      Math.min(64, Number(batchSizeInput.value) || 8)
-    );
+    // Reset error UI
+    document
+      .querySelectorAll("#training-preview-container input[type='number']")
+      .forEach((inp) => inp.classList.remove("error"));
 
-    btnTrainModel.disabled = true;
-    trainingLog.textContent = "";
-    appendLog(`Mulai training dengan ${dataset.length} sampel...`);
-    appendLog(`Epoch: ${epochs}, batch size: ${batchSize}`);
+    // Ambil persentase per gambar
+    const entries = [];
+    let hasError = false;
+
+    trainingFiles.forEach((item) => {
+      const input = document.querySelector(
+        `input[data-percent-for="${item.id}"]`
+      );
+      if (!input) return;
+
+      const valueStr = input.value.trim();
+      const value = parseFloat(valueStr);
+
+      if (
+        !valueStr ||
+        Number.isNaN(value) ||
+        value < 0 ||
+        value > 100
+      ) {
+        input.classList.add("error");
+        hasError = true;
+      } else {
+        entries.push({ item, percent: value });
+      }
+    });
+
+    if (hasError) {
+      trainingStatus.textContent =
+        "Beberapa gambar belum diisi persentase dengan benar (0–100%).";
+      return;
+    }
+
+    trainingStatus.textContent = "Memproses gambar dan menyimpan ke dataset...";
+    trainButton.disabled = true;
 
     try {
-      const model = await window.LipidModel.trainOnDataset(
-        dataset,
-        epochs,
-        batchSize,
-        (msg) => appendLog(msg)
-      );
-      currentModel = model;
-      appendLog("Training selesai. Model tersimpan di IndexedDB.");
+      const newSamples = [];
+
+      for (const entry of entries) {
+        const features = await LipidModel.extractFeaturesFromFile(
+          entry.item.file
+        );
+        newSamples.push({
+          features,
+          label: entry.percent,
+        });
+      }
+
+      // Simpan ke storage dan update model
+      const merged = LipidStorage.appendSamples(newSamples);
+      LipidModel.setSamples(merged);
+      updateSampleCountDisplay();
+
+      trainingStatus.textContent = `Berhasil menambahkan ${newSamples.length} sampel ke dataset.`;
+      // Opsional: reset pilihan training
+      trainingFiles = [];
+      trainingFilesInput.value = "";
+      clearChildren(trainingPreviewContainer);
     } catch (err) {
       console.error(err);
-      appendLog("Terjadi error saat training: " + err.message);
+      trainingStatus.textContent =
+        "Terjadi kesalahan saat memproses gambar. Periksa console log.";
     } finally {
-      btnTrainModel.disabled = false;
-      refreshStats();
+      trainButton.disabled = false;
     }
-  });
-
-  function appendLog(message) {
-    const now = new Date();
-    const timeStr = now.toLocaleTimeString();
-    trainingLog.textContent += `[${timeStr}] ${message}\n`;
-    trainingLog.scrollTop = trainingLog.scrollHeight;
   }
 
-  // === Clear dataset ===
-  btnClearDataset.addEventListener("click", () => {
-    if (
-      !confirm(
-        "Yakin ingin menghapus semua sampel training yang tersimpan di browser ini?"
-      )
-    ) {
-      return;
-    }
-    window.LipidStorage.clearDataset();
-    clearStatus.textContent = "Dataset lokal sudah dihapus.";
-    refreshStats();
+  trainButton.addEventListener("click", () => {
+    handleTraining();
   });
 
-  // === Analisa (batch gambar) ===
-  btnRunAnalysis.addEventListener("click", async () => {
-    const files = Array.from(analysisImagesInput.files || []);
-    if (files.length === 0) {
-      analysisStatus.textContent =
-        "Silakan pilih minimal satu gambar untuk dianalisa.";
-      return;
-    }
+  // --- ANALISA ---
 
-    if (!currentModel) {
-      analysisStatus.textContent =
-        "Model belum ada. Silakan training model terlebih dahulu di tab Training.";
-      return;
-    }
+  analysisFilesInput.addEventListener("change", (e) => {
+    const files = Array.from(e.target.files || []);
+    analysisFiles = files.map((f, idx) => ({
+      id: `analysis_${Date.now()}_${idx}`,
+      file: f,
+    }));
 
-    btnRunAnalysis.disabled = true;
-    analysisStatus.textContent =
-      "Mengolah gambar dan menjalankan prediksi...";
-
-    analysisResultsBody.innerHTML = "";
-
-    for (let i = 0; i < files.length; i++) {
-      /* eslint-disable no-await-in-loop */
-      const file = files[i];
-      const dataUrl = await fileToDataUrl(file);
-      const img = new Image();
-      await new Promise((resolve, reject) => {
-        img.onload = resolve;
-        img.onerror = reject;
-        img.src = dataUrl;
-      });
-
-      const prediction = await window.LipidModel.predictOnImageElement(
-        currentModel,
-        img
-      );
-      const clamped = Math.max(0, Math.min(100, prediction));
-      const rounded = clamped.toFixed(1);
-
-      const row = document.createElement("tr");
-      row.innerHTML = `
-        <td>${i + 1}</td>
-        <td><img src="${dataUrl}" class="preview-img" /></td>
-        <td>${file.name}</td>
-        <td><strong>${rounded}</strong> %</td>
-      `;
-      analysisResultsBody.appendChild(row);
-      /* eslint-enable no-await-in-loop */
-    }
-
-    analysisStatus.textContent = "Analisa selesai.";
-    btnRunAnalysis.disabled = false;
+    analysisStatus.textContent = files.length
+      ? `Dipilih ${files.length} gambar untuk analisa.`
+      : "";
+    clearChildren(analysisResultsContainer);
   });
 
-  // Init
-  tryLoadModel();
-  refreshStats();
+  async function handleAnalysis() {
+    if (!LipidModel.hasSamples()) {
+      analysisStatus.textContent =
+        "Belum ada dataset training. Silakan lakukan training terlebih dahulu.";
+      return;
+    }
+
+    if (analysisFiles.length === 0) {
+      analysisStatus.textContent = "Tidak ada gambar untuk dianalisa.";
+      return;
+    }
+
+    analysisStatus.textContent = "Memproses dan menganalisa gambar...";
+    analyzeButton.disabled = true;
+    clearChildren(analysisResultsContainer);
+
+    try {
+      for (const item of analysisFiles) {
+        const features = await LipidModel.extractFeaturesFromFile(item.file);
+        const predicted = LipidModel.predictSingle(features, 5);
+
+        const card = document.createElement("div");
+        card.className = "image-card";
+
+        const thumbWrapper = document.createElement("div");
+        thumbWrapper.className = "image-thumb-wrapper";
+        const img = document.createElement("img");
+        img.className = "image-thumb";
+        img.alt = item.file.name;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          img.src = e.target.result;
+        };
+        reader.readAsDataURL(item.file);
+        thumbWrapper.appendChild(img);
+
+        const filename = document.createElement("div");
+        filename.className = "image-filename";
+        filename.textContent = item.file.name;
+
+        const meta = document.createElement("div");
+        meta.className = "image-meta";
+
+        const resultBadge = document.createElement("span");
+        resultBadge.className = "result-badge";
+        if (predicted == null) {
+          resultBadge.textContent = "Model belum terlatih";
+        } else {
+          const rounded = Math.round(predicted * 10) / 10;
+          resultBadge.textContent = `Prediksi: ${rounded.toFixed(
+            1
+          )} % lipid`;
+        }
+
+        meta.appendChild(resultBadge);
+
+        const note = document.createElement("div");
+        note.className = "result-note";
+        note.textContent =
+          "Nilai ini merupakan estimasi berbasis kemiripan citra terhadap dataset training (KNN).";
+
+        card.appendChild(thumbWrapper);
+        card.appendChild(filename);
+        card.appendChild(meta);
+        card.appendChild(note);
+
+        analysisResultsContainer.appendChild(card);
+      }
+
+      analysisStatus.textContent = "Analisa selesai.";
+    } catch (err) {
+      console.error(err);
+      analysisStatus.textContent =
+        "Terjadi kesalahan saat analisa gambar. Periksa console log.";
+    } finally {
+      analyzeButton.disabled = false;
+    }
+  }
+
+  analyzeButton.addEventListener("click", () => {
+    handleAnalysis();
+  });
+
+  // --- TAB NAVIGATION ---
+
+  tabButtons.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const target = btn.dataset.tab;
+      if (!target) return;
+      switchTab(target);
+    });
+  });
 });
