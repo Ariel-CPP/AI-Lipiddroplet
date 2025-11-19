@@ -1,18 +1,22 @@
-/* --- Global layout & typography --- */
+/* ===========================
+   CP Prima – Global Theme
+   =========================== */
 
 :root {
-  --cp-primary: #004a93;
-  --cp-primary-dark: #003668;
-  --cp-accent: #f48b27;
-  --cp-bg: #f4f6fb;
+  --cp-primary: #004a8f;
+  --cp-primary-dark: #003265;
+  --cp-accent: #f58220;
+  --cp-bg: #f4f7fb;
   --cp-card-bg: #ffffff;
-  --cp-border: #dde3f0;
-  --cp-text-main: #1f2933;
-  --cp-text-muted: #6b7280;
-  --cp-shadow-soft: 0 10px 25px rgba(15, 23, 42, 0.08);
+  --cp-border: #e5e7eb;
+  --cp-text: #1f2933;
+  --cp-muted: #6b7280;
   --cp-radius-lg: 14px;
-  --cp-radius-sm: 8px;
+  --cp-radius-md: 10px;
+  --cp-shadow-soft: 0 10px 30px rgba(15, 23, 42, 0.08);
 }
+
+/* Reset-ish */
 
 *,
 *::before,
@@ -20,348 +24,429 @@
   box-sizing: border-box;
 }
 
+html,
 body {
   margin: 0;
+  padding: 0;
+}
+
+body {
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  background: radial-gradient(circle at top left, #e6efff 0, var(--cp-bg) 40%, #fdfdfd 100%);
-  color: var(--cp-text-main);
+  background: radial-gradient(circle at top left, #ffffff 0, var(--cp-bg) 55%, #e5edf8 100%);
+  color: var(--cp-text);
 }
 
-/* --- Header & Navigation --- */
+/* ===========================
+   App Shell
+   =========================== */
 
-.cp-header {
-  background: linear-gradient(90deg, var(--cp-primary-dark), var(--cp-primary));
-  color: #ffffff;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.2);
-  position: sticky;
-  top: 0;
-  z-index: 50;
-}
-
-.cp-header-inner {
+.app-shell {
   max-width: 1120px;
   margin: 0 auto;
-  padding: 0.75rem 1.5rem;
+  padding: 1.5rem 1.5rem 2.5rem;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ===========================
+   Header & Navigation
+   =========================== */
+
+.app-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  padding: 0.75rem 1.25rem;
+  margin-bottom: 1.5rem;
+  background: linear-gradient(90deg, var(--cp-primary-dark), var(--cp-primary));
+  border-radius: var(--cp-radius-lg);
+  box-shadow: var(--cp-shadow-soft);
+  color: #ffffff;
 }
 
-.cp-logo {
+.brand {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-}
-
-.cp-logo-mark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 999px;
-  background: #ffffff;
-  color: var(--cp-primary-dark);
-  font-weight: 700;
-  font-size: 0.9rem;
-}
-
-.cp-logo-text {
-  font-weight: 600;
-  letter-spacing: 0.03em;
-  font-size: 0.95rem;
-}
-
-.cp-nav {
-  display: flex;
   gap: 0.75rem;
 }
 
-.cp-nav-link {
-  color: #dbeafe;
-  text-decoration: none;
-  font-size: 0.92rem;
-  padding: 0.5rem 0.9rem;
+.brand-logo {
+  width: 38px;
+  height: 38px;
   border-radius: 999px;
-  transition: background 0.2s, color 0.2s, transform 0.1s;
+  background: #ffffff;
+  color: var(--cp-primary-dark);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 1.1rem;
 }
 
-.cp-nav-link:hover {
-  background: rgba(255, 255, 255, 0.1);
-  transform: translateY(-1px);
+.brand-text {
+  display: flex;
+  flex-direction: column;
 }
 
-.cp-nav-link-active {
+.brand-company {
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.9;
+}
+
+.brand-app-name {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.app-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(15, 23, 42, 0.28);
+  padding: 0.25rem;
+  border-radius: 999px;
+}
+
+.nav-link {
+  border: none;
+  outline: none;
+  background: transparent;
+  color: #e5f0ff;
+  text-decoration: none;
+  font-size: 0.85rem;
+  font-weight: 500;
+  padding: 0.4rem 0.9rem;
+  border-radius: 999px;
+  transition: background 0.18s ease, color 0.18s ease;
+  cursor: pointer;
+}
+
+.nav-link:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.nav-link-active {
   background: #ffffff;
   color: var(--cp-primary-dark);
 }
 
-/* --- Main layout --- */
+/* ===========================
+   Main Layout
+   =========================== */
 
-.cp-main {
-  max-width: 1120px;
-  margin: 1.75rem auto 2.5rem auto;
-  padding: 0 1.5rem;
+.app-main {
+  flex: 1;
+  margin-top: 1rem;
 }
 
-.cp-hero {
-  margin-bottom: 1.75rem;
+/* Page header */
+
+.page-header {
+  margin-bottom: 1.2rem;
 }
 
-.cp-hero h1 {
-  margin: 0 0 0.5rem 0;
-  font-size: 1.9rem;
+.page-header h1 {
+  margin: 0;
+  font-size: 1.6rem;
+  font-weight: 700;
   color: var(--cp-primary-dark);
 }
 
-.cp-hero p {
-  margin: 0;
-  max-width: 720px;
-  color: var(--cp-text-muted);
-  font-size: 0.98rem;
+.page-subtitle {
+  margin: 0.5rem 0 0;
+  font-size: 0.95rem;
+  color: var(--cp-muted);
+  max-width: 780px;
 }
 
-/* Grid layout differs slightly between Training and Analysis pages */
+/* KPI cards */
 
-.cp-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(0, 1.4fr);
-  gap: 1.5rem;
+.kpi-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.9rem;
 }
 
-.cp-grid-single {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 1.5rem;
+.kpi-card {
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: var(--cp-radius-md);
+  padding: 0.7rem 0.9rem;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  min-width: 180px;
 }
 
-@media (max-width: 900px) {
-  .cp-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
+.kpi-label {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--cp-muted);
 }
 
-/* --- Cards --- */
+.kpi-value {
+  margin-top: 0.15rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--cp-primary-dark);
+}
 
-.cp-card {
+.kpi-value-muted {
+  color: var(--cp-muted);
+}
+
+/* ===========================
+   Cards
+   =========================== */
+
+.card {
   background: var(--cp-card-bg);
   border-radius: var(--cp-radius-lg);
   box-shadow: var(--cp-shadow-soft);
-  padding: 1.4rem 1.5rem 1.6rem 1.5rem;
-  border: 1px solid rgba(148, 163, 184, 0.3);
+  padding: 1.3rem 1.4rem 1.3rem;
+  margin-top: 1.1rem;
+  border: 1px solid var(--cp-border);
 }
 
-.cp-card h2 {
-  margin-top: 0;
-  margin-bottom: 0.4rem;
-  font-size: 1.2rem;
+.card-header h2 {
+  margin: 0;
+  font-size: 1.1rem;
   color: var(--cp-primary-dark);
 }
 
-.cp-muted {
-  margin-top: 0.1rem;
+.card-description {
+  margin: 0.35rem 0 0;
+  font-size: 0.9rem;
+  color: var(--cp-muted);
+}
+
+.card-body {
+  margin-top: 1rem;
+}
+
+.card-body-split {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1rem 1.5rem;
+}
+
+.card-column {
+  padding: 0.25rem 0;
+}
+
+.card-subtitle {
+  margin: 0 0 0.4rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--cp-primary-dark);
+}
+
+/* ===========================
+   Forms
+   =========================== */
+
+.form-group {
   margin-bottom: 0.9rem;
-  font-size: 0.92rem;
-  color: var(--cp-text-muted);
 }
 
-/* --- Subcards (inside DB card) --- */
-
-.cp-subcard {
-  border-radius: var(--cp-radius-sm);
-  border: 1px dashed var(--cp-border);
-  padding: 0.9rem 1rem;
-  margin-top: 0.9rem;
-  background: #f9fbff;
+.form-label {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+  color: var(--cp-text);
 }
 
-.cp-subcard h3 {
-  margin: 0 0 0.25rem 0;
-  font-size: 1rem;
-  color: var(--cp-primary);
-}
-
-/* --- Form elements --- */
-
-.cp-form-group,
-.cp-form-group-inline {
-  margin-bottom: 0.9rem;
-}
-
-.cp-form-group-inline {
+.input-row {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.55rem;
   flex-wrap: wrap;
 }
 
-.cp-label {
-  display: block;
+/* File input styled like a button */
+
+.input-file {
+  padding: 0.55rem 0.9rem;
+  border-radius: 999px;
+  border: 1px dashed var(--cp-primary);
+  background: rgba(255, 255, 255, 0.9);
   font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--cp-text-main);
-  margin-bottom: 0.25rem;
+  cursor: pointer;
+  color: var(--cp-primary-dark);
 }
 
-.cp-input-file {
-  font-size: 0.9rem;
+.input-file:hover {
+  background: #eef3ff;
 }
 
-.cp-input-number {
-  width: 90px;
-  padding: 0.25rem 0.4rem;
-  border-radius: 6px;
-  border: 1px solid var(--cp-border);
-  font-size: 0.85rem;
+/* Hidden file input inside a button */
+
+.input-file-hidden {
+  display: none;
 }
 
-/* --- Buttons --- */
+/* Buttons */
 
-.cp-button {
-  border: none;
+.btn {
   border-radius: 999px;
   padding: 0.55rem 1.2rem;
   font-size: 0.9rem;
-  font-weight: 500;
+  font-weight: 600;
+  border: none;
   cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease,
+    transform 0.08s ease;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.35rem;
-  transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
 }
 
-.cp-button:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-  box-shadow: none;
+.btn-inline {
+  position: relative;
+  overflow: hidden;
 }
 
-.cp-button.primary {
+.btn-primary {
   background: linear-gradient(135deg, var(--cp-primary), var(--cp-primary-dark));
   color: #ffffff;
-  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.28);
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.25);
 }
 
-.cp-button.primary:hover:not(:disabled) {
+.btn-primary:hover {
+  background: linear-gradient(135deg, var(--cp-primary-dark), var(--cp-primary-dark));
   transform: translateY(-1px);
-  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.32);
 }
 
-.cp-button.secondary {
+.btn-secondary {
   background: #ffffff;
   color: var(--cp-primary-dark);
-  border: 1px solid var(--cp-border);
+  border: 1px solid rgba(148, 163, 184, 0.6);
 }
 
-.cp-button.secondary:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.18);
+.btn-secondary:hover {
+  background: #eef3ff;
 }
 
-/* --- Status text --- */
+.btn-outline {
+  background: transparent;
+  color: var(--cp-primary-dark);
+  border: 1px solid rgba(148, 163, 184, 0.9);
+}
 
-.cp-status {
-  margin-top: 0.9rem;
-  padding-top: 0.6rem;
-  border-top: 1px solid var(--cp-border);
-  font-size: 0.88rem;
-  color: var(--cp-text-muted);
+.btn-outline:hover {
+  background: #eaf1ff;
+}
+
+/* Card actions */
+
+.card-actions {
+  margin-top: 0.8rem;
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* Help text */
+
+.help-text {
+  margin-top: 0.35rem;
+  font-size: 0.8rem;
+  color: var(--cp-muted);
+}
+
+/* ===========================
+   Image & Result Layouts
+   =========================== */
+
+.image-list {
+  margin-top: 0.7rem;
+  border-radius: var(--cp-radius-md);
+  border: 1px dashed var(--cp-border);
+  padding: 0.7rem;
+  background: #f9fbff;
+  max-height: 260px;
+  overflow-y: auto;
+  font-size: 0.85rem;
+}
+
+/* Example styling for individual rows 
+   (your JS can create elements with these classes) */
+
+.training-row,
+.result-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.45rem 0.5rem;
+  border-radius: 10px;
+}
+
+.training-row:nth-child(odd),
+.result-row:nth-child(odd) {
+  background: rgba(148, 163, 184, 0.08);
+}
+
+.result-image-thumb img {
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.6);
+}
+
+.result-info {
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
 }
 
-.cp-small-status {
-  margin-top: 0.6rem;
-  font-size: 0.85rem;
-  color: var(--cp-text-muted);
+.result-filename {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--cp-text);
 }
 
-/* --- Training preview list --- */
+.result-prediction {
+  font-size: 0.84rem;
+  color: var(--cp-primary-dark);
+}
 
-.preview-list {
-  margin-top: 0.75rem;
-  border-radius: var(--cp-radius-sm);
+/* Results container */
+
+.results-table {
+  border-radius: var(--cp-radius-md);
   border: 1px solid var(--cp-border);
   background: #f9fbff;
-  padding: 0.6rem 0.7rem;
-  max-height: 320px;
+  padding: 0.7rem;
+  max-height: 360px;
   overflow-y: auto;
 }
 
-.preview-item {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: 0.7rem;
-  padding: 0.45rem 0.1rem;
-  border-bottom: 1px dashed rgba(148, 163, 184, 0.4);
+/* Filename label near upload */
+
+.filename-label {
+  font-size: 0.8rem;
+  color: var(--cp-muted);
 }
 
-.preview-item:last-child {
-  border-bottom: none;
-}
+/* ===========================
+   Status bars
+   =========================== */
 
-.preview-thumb {
-  width: 52px;
-  height: 52px;
-  object-fit: cover;
-  border-radius: 8px;
+.status-bar {
+  margin-top: 0.7rem;
+  padding: 0.45rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  color: var(--cp-muted);
+  background: #f3f4ff;
   border: 1px solid rgba(148, 163, 184, 0.6);
 }
 
-.preview-filename {
-  font-size: 0.88rem;
-  font-weight: 500;
+.status-bar-inline {
+  margin-top: 0.45rem;
 }
 
-.preview-extra {
-  font-size: 0.78rem;
-  color: var(--cp-text-muted);
-}
-
-/* --- Analysis results table --- */
-
-.results-table {
-  margin-top: 1rem;
-}
-
-.results-table table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.9rem;
-}
-
-.results-table th,
-.results-table td {
-  padding: 0.5rem 0.5rem;
-  border-bottom: 1px solid var(--cp-border);
-  text-align: left;
-}
-
-.results-table th {
-  background: #f1f5ff;
-  color: var(--cp-primary-dark);
-  position: sticky;
-  top: 0;
-}
-
-.results-thumb {
-  width: 48px;
-  height: 48px;
-  object-fit: cover;
-  border-radius: 7px;
-  border: 1px solid rgba(148, 163, 184, 0.6);
-}
-
-/* --- Footer --- */
-
-.cp-footer {
-  border-top: 1px solid rgba(148, 163, 184, 0.3);
-  text-align: center;
-  padding: 0.9rem 1.5rem 1.3rem 1.5rem;
-  font-size: 0.82rem;
-  color: var(--cp-text-muted);
-  background: #f9fafb;
-}
+.s
