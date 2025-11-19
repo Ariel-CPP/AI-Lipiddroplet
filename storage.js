@@ -1,113 +1,81 @@
 // storage.js
-// Handling the local "database" of training samples and model state.
-//
-// Structure:
-// {
-//   version: 1,
-//   createdAt: "...",
-//   samples: [{ features: [...], labelPercent: number, filename: string }, ...],
-//   modelState: { ... from LipidModel.getModelState() ... }
-// }
+// Handles persistence of the model "database" in localStorage and
+// supports export/import as a static JSON file.
 
-const LipidStorage = (function () {
-  "use strict";
+const Storage = (function () {
+  const KEY = "lipid-droplet-ai-db-v1";
 
-  const DB_KEY = "lipid_ai_database_v1";
-  let db = {
-    version: 1,
-    createdAt: new Date().toISOString(),
-    samples: [],
-    modelState: null,
-  };
-  let loaded = false;
+  function createEmpty() {
+    const now = new Date().toISOString();
+    return {
+      version: 1,
+      createdAt: now,
+      updatedAt: now,
+      model: null,
+      stats: {
+        totalSamples: 0,
+      },
+    };
+  }
 
   function load() {
-    if (loaded) return;
-    const raw = window.localStorage.getItem(DB_KEY);
-    if (raw) {
-      try {
-        const parsed = JSON.parse(raw);
-        if (parsed && Array.isArray(parsed.samples)) {
-          db = parsed;
-        }
-      } catch (e) {
-        console.warn("Failed to parse stored database, resetting.", e);
-      }
-    }
-    loaded = true;
-  }
-
-  function persist() {
     try {
-      window.localStorage.setItem(DB_KEY, JSON.stringify(db));
-    } catch (e) {
-      console.warn("Failed to save database to localStorage.", e);
-    }
-  }
-
-  function getSamples() {
-    load();
-    return db.samples;
-  }
-
-  function addSample(sample) {
-    load();
-    db.samples.push(sample);
-    persist();
-  }
-
-  function clearSamples() {
-    load();
-    db.samples = [];
-    persist();
-  }
-
-  function getModelState() {
-    load();
-    return db.modelState;
-  }
-
-  function setModelState(state) {
-    load();
-    db.modelState = state;
-    persist();
-  }
-
-  function getSampleCount() {
-    load();
-    return db.samples.length;
-  }
-
-  function exportToJsonString() {
-    load();
-    return JSON.stringify(db, null, 2);
-  }
-
-  function importFromJsonString(jsonString) {
-    try {
-      const parsed = JSON.parse(jsonString);
-      if (!parsed || !Array.isArray(parsed.samples)) {
-        throw new Error("Invalid database format.");
+      const raw = window.localStorage.getItem(KEY);
+      if (!raw) {
+        const empty = createEmpty();
+        save(empty);
+        return empty;
       }
-      db = parsed;
-      loaded = true;
-      persist();
-      return true;
-    } catch (e) {
-      console.error("Failed to import database:", e);
-      return false;
+      const parsed = JSON.parse(raw);
+      // ensure basic shape
+      if (!parsed.stats) {
+        parsed.stats = { totalSamples: 0 };
+      }
+      if (!parsed.version) {
+        parsed.version = 1;
+      }
+      return parsed;
+    } catch (err) {
+      console.warn("Storage: error loading database, resetting.", err);
+      const empty = createEmpty();
+      save(empty);
+      return empty;
     }
+  }
+
+  function save(db) {
+    db.updatedAt = new Date().toISOString();
+    window.localStorage.setItem(KEY, JSON.stringify(db));
+  }
+
+  function exportToBlob(db) {
+    const json = JSON.stringify(db, null, 2);
+    return new Blob([json], { type: "application/json" });
+  }
+
+  async function importFromFile(file) {
+    const text = await file.text();
+    const parsed = JSON.parse(text);
+
+    // very light validation
+    if (!parsed || typeof parsed !== "object") {
+      throw new Error("Invalid database file.");
+    }
+    if (!parsed.version) {
+      parsed.version = 1;
+    }
+    if (!parsed.stats) {
+      parsed.stats = { totalSamples: 0 };
+    }
+    save(parsed);
+    return parsed;
   }
 
   return {
     load,
-    getSamples,
-    addSample,
-    clearSamples,
-    getModelState,
-    setModelState,
-    getSampleCount,
-    exportToJsonString,
-    importFromJsonString,
+    save,
+    createEmpty,
+    exportToBlob,
+    importFromFile,
   };
 })();
