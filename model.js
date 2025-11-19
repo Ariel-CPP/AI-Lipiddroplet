@@ -1,202 +1,143 @@
-// js/model.js
-// Namespace global untuk model TensorFlow.js
+// model.js
+// Model AI sederhana untuk estimasi persentase lipid droplet
+// - Ekstraksi fitur dari gambar menggunakan canvas offscreen
+// - KNN (k-nearest neighbors) untuk prediksi
 
-window.LipidModel = (function () {
-  const MODEL_NAME = "lipid-droplet-model-v1";
-  const IMAGE_SIZE = 128;
+const LipidModel = (() => {
+  let samples = []; // { features: [f1, f2, ...], label: number }
 
-  function buildModel() {
-    const model = tf.sequential();
-    model.add(
-      tf.layers.conv2d({
-        inputShape: [IMAGE_SIZE, IMAGE_SIZE, 3],
-        filters: 16,
-        kernelSize: 3,
-        activation: "relu",
-      })
-    );
-    model.add(tf.layers.maxPooling2d({ poolSize: 2, strides: 2 }));
-
-    model.add(
-      tf.layers.conv2d({
-        filters: 32,
-        kernelSize: 3,
-        activation: "relu",
-      })
-    );
-    model.add(tf.layers.maxPooling2d({ poolSize: 2, strides: 2 }));
-
-    model.add(
-      tf.layers.conv2d({
-        filters: 64,
-        kernelSize: 3,
-        activation: "relu",
-      })
-    );
-    model.add(tf.layers.maxPooling2d({ poolSize: 2, strides: 2 }));
-
-    model.add(tf.layers.flatten());
-    model.add(
-      tf.layers.dense({
-        units: 64,
-        activation: "relu",
-      })
-    );
-    model.add(tf.layers.dropout({ rate: 0.3 }));
-    model.add(
-      tf.layers.dense({
-        units: 1,
-        activation: "linear", // output nilai 0–1 (skala %/100)
-      })
-    );
-
-    model.compile({
-      optimizer: tf.train.adam(0.0005),
-      loss: "meanSquaredError",
-      metrics: ["mae"],
-    });
-
-    return model;
+  function setSamples(newSamples) {
+    samples = Array.isArray(newSamples) ? newSamples : [];
   }
 
-  async function loadExistingModel() {
-    try {
-      const model = await tf.loadLayersModel(
-        "indexeddb://" + MODEL_NAME
-      );
-      return model;
-    } catch (e) {
-      console.warn("Tidak menemukan model tersimpan:", e.message);
-      return null;
-    }
+  function getSamples() {
+    return samples;
   }
 
-  async function saveModel(model) {
-    await model.save("indexeddb://" + MODEL_NAME);
+  function addSamples(newSamples) {
+    if (!Array.isArray(newSamples)) return;
+    samples = samples.concat(newSamples);
   }
 
-  function imageDataUrlToTensor(dataUrl) {
-    return tf.tidy(() => {
-      const image = new Image();
-      image.src = dataUrl;
-
-      // Catatan: kita tidak bisa synchronous menunggu image onload di sini,
-      // jadi fungsi ini tidak dipakai untuk DataURL langsung di training.
-      // Di training kita lewat <img> yang sudah onload.
-      return null;
-    });
+  function hasSamples() {
+    return samples.length > 0;
   }
 
-  async function htmlImageToTensor(imgElement) {
-    return tf.tidy(() => {
-      const tensor = tf.browser.fromPixels(imgElement);
-      const resized = tf.image.resizeBilinear(
-        tensor,
-        [IMAGE_SIZE, IMAGE_SIZE]
-      );
-      const normalized = resized.div(255.0);
-      return normalized;
-    });
-  }
+  // --- Ekstraksi fitur citra sederhana ---
+  // Fitur: [meanBrightness, brightFraction]
+  function extractFeaturesFromImageElement(img, maxSize = 64) {
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
 
-  async function trainOnDataset(dataset, epochs, batchSize, onLog) {
-    if (!dataset || dataset.length === 0) {
-      throw new Error("Dataset kosong, tidak bisa training.");
+    // Resize menjaga rasio
+    const scale = Math.min(maxSize / img.width, maxSize / img.height, 1);
+    const w = Math.max(1, Math.round(img.width * scale));
+    const h = Math.max(1, Math.round(img.height * scale));
+    canvas.width = w;
+    canvas.height = h;
+
+    ctx.drawImage(img, 0, 0, w, h);
+    const imageData = ctx.getImageData(0, 0, w, h);
+    const data = imageData.data;
+
+    let sumBrightness = 0;
+    let brightCount = 0;
+    const totalPixels = w * h;
+
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+      const brightness = (r + g + b) / 3; // 0–255
+      sumBrightness += brightness;
+      if (brightness > 170) {
+        brightCount++;
+      }
     }
 
-    // Siapkan elemen <img> untuk diisi satu per satu (agar bisa jadi tensor)
-    const tempImg = document.createElement("img");
+    const meanBrightness = totalPixels > 0 ? sumBrightness / totalPixels : 0;
+    const brightFraction = totalPixels > 0 ? brightCount / totalPixels : 0;
 
-    const xsArray = [];
-    const ysArray = [];
+    return [meanBrightness, brightFraction];
+  }
 
-    // Konversi dataset ke tensor
-    for (let i = 0; i < dataset.length; i++) {
-      const sample = dataset[i];
-      const { label, dataUrl } = sample;
-
-      // Pastikan label 0–100 → skala 0–1
-      const yVal = Math.max(0, Math.min(100, Number(label))) / 100.0;
-
-      // Load sinkron-ish: kita bungkus dalam Promise
-      /* eslint-disable no-await-in-loop */
-      await new Promise((resolve, reject) => {
-        tempImg.onload = () => {
-          const xTensor = tf.tidy(() => {
-            const fromPixels = tf.browser.fromPixels(tempImg);
-            const resized = tf.image.resizeBilinear(
-              fromPixels,
-              [IMAGE_SIZE, IMAGE_SIZE]
-            );
-            const normalized = resized.div(255.0);
-            return normalized;
-          });
-          xsArray.push(xTensor);
-          ysArray.push(yVal);
-          resolve();
-        };
-        tempImg.onerror = reject;
-        tempImg.src = dataUrl;
-      });
-      /* eslint-enable no-await-in-loop */
-    }
-
-    const xs = tf.stack(xsArray); // [N, H, W, 3]
-    const ys = tf.tensor1d(ysArray);
-
-    xsArray.forEach((t) => t.dispose());
-
-    let model = await loadExistingModel();
-    if (!model) {
-      model = buildModel();
-    }
-
-    await model.fit(xs, ys, {
-      epochs,
-      batchSize,
-      shuffle: true,
-      callbacks: {
-        onEpochEnd: async (epoch, logs) => {
-          if (onLog) {
-            const loss = logs.loss?.toFixed(4);
-            const mae = logs.mae?.toFixed(4);
-            onLog(
-              `Epoch ${epoch + 1}/${epochs} — loss: ${loss}, mae: ${mae}`
-            );
+  // Convert File -> Image -> fitur
+  function extractFeaturesFromFile(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          try {
+            const features = extractFeaturesFromImageElement(img);
+            resolve(features);
+          } catch (err) {
+            reject(err);
           }
-          await tf.nextFrame();
-        },
-      },
+        };
+        img.onerror = (err) => reject(err);
+        img.src = e.target.result;
+      };
+      reader.onerror = (err) => reject(err);
+      reader.readAsDataURL(file);
     });
-
-    xs.dispose();
-    ys.dispose();
-
-    await saveModel(model);
-    return model;
   }
 
-  async function predictOnImageElement(model, imgElement) {
-    return tf.tidy(() => {
-      const tensor = tf.browser.fromPixels(imgElement);
-      const resized = tf.image.resizeBilinear(
-        tensor,
-        [IMAGE_SIZE, IMAGE_SIZE]
-      );
-      const normalized = resized.div(255.0);
-      const batched = normalized.expandDims(0); // [1, H, W, 3]
+  // Euclidean distance antara dua vektor fitur
+  function distance(a, b) {
+    const len = Math.min(a.length, b.length);
+    let sum = 0;
+    for (let i = 0; i < len; i++) {
+      const d = (a[i] || 0) - (b[i] || 0);
+      sum += d * d;
+    }
+    return Math.sqrt(sum);
+  }
 
-      const pred = model.predict(batched);
-      const value = pred.dataSync()[0]; // dalam skala 0–1
-      return value * 100.0;
-    });
+  // Prediksi satu vektor fitur
+  function predictSingle(features, k = 5) {
+    if (!hasSamples()) {
+      return null;
+    }
+    const dists = samples.map((s) => ({
+      label: s.label,
+      dist: distance(s.features, features),
+    }));
+
+    dists.sort((a, b) => a.dist - b.dist);
+    const kEff = Math.min(k, dists.length);
+    let numZero = dists.findIndex((d) => d.dist === 0);
+
+    // Jika ada sampel identik, langsung gunakan labelnya
+    if (numZero !== -1) {
+      return dists[numZero].label;
+    }
+
+    let weightedSum = 0;
+    let weightTotal = 0;
+    for (let i = 0; i < kEff; i++) {
+      const d = dists[i].dist;
+      const w = 1 / (d + 1e-6); // bobot kebalikan jarak
+      weightedSum += dists[i].label * w;
+      weightTotal += w;
+    }
+
+    if (weightTotal === 0) return dists[0].label;
+    return weightedSum / weightTotal;
+  }
+
+  // Prediksi batch
+  function predictBatch(featuresArray, k = 5) {
+    return featuresArray.map((f) => predictSingle(f, k));
   }
 
   return {
-    buildModel,
-    loadExistingModel,
-    saveModel,
-    trainOnDataset,
-    predictOnImageElement,
+    setSamples,
+    getSamples,
+    addSamples,
+    hasSamples,
+    extractFeaturesFromFile,
+    predictSingle,
+    predictBatch,
   };
 })();
