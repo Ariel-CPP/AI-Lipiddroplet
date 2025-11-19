@@ -1,103 +1,147 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 <head>
   <meta charset="UTF-8" />
-  <title>Lipid Droplet Analyzer - Shrimp Hepatopancreas</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lipid Droplet Analyzer – Hepatopankreas Udang</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- CSS -->
+  <link rel="stylesheet" href="css/styles.css" />
 
   <!-- TensorFlow.js CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
 
-  <!-- Styles -->
-  <link rel="stylesheet" href="styles.css" />
+  <!-- Modul JS (tanpa type="module", kita pakai namespace global) -->
+  <script src="js/storage.js"></script>
+  <script src="js/model.js"></script>
+  <script src="js/app.js" defer></script>
 </head>
 <body>
   <header>
-    <h1>Lipid Droplet Analyzer</h1>
-    <p>Web-based AI for lipid droplet percentage estimation in shrimp hepatopancreas wet mount images.</p>
+    <h1>Lipid Droplet AI – Hepatopankreas Udang</h1>
+    <p class="subtitle">
+      Web-based AI sederhana (TensorFlow.js) untuk training dan analisa persentase lipid droplet
+      dari citra wet mount hepatopankreas udang.
+    </p>
   </header>
 
-  <nav>
-    <button id="tab-training" class="tab-button active">Training</button>
-    <button id="tab-analysis" class="tab-button">Analysis</button>
-  </nav>
-
   <main>
-    <!-- TRAINING PANEL -->
-    <section id="training-panel" class="panel active">
-      <h2>Training</h2>
+    <!-- Info global -->
+    <section id="stats-panel">
+      <h2>Status Dataset & Model</h2>
+      <div class="stats-row">
+        <div class="stat-card">
+          <span class="stat-label">Jumlah sampel training tersimpan</span>
+          <span id="stat-sample-count" class="stat-value">0</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Status model</span>
+          <span id="stat-model-status" class="stat-value">Belum ada model</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tabs -->
+    <nav id="tabs">
+      <button class="tab-button active" data-target="tab-training">Training</button>
+      <button class="tab-button" data-target="tab-analysis">Analisa</button>
+    </nav>
+
+    <!-- TAB TRAINING -->
+    <section id="tab-training" class="tab-content active">
+      <h2>Training Model</h2>
       <p>
-        Upload wet mount hepatopancreas images with known lipid droplet percentage to train the model.
+        Langkah: pilih beberapa gambar wet mount hepatopankreas, tentukan
+        <strong>persentase lipid droplet yang sudah diketahui</strong>,
+        lalu tambahkan ke dataset dan latih model.
       </p>
 
       <div class="card">
         <h3>1. Tambah Data Training</h3>
-        <label for="train-image-input">Gambar training (JPG/PNG):</label>
-        <input type="file" id="train-image-input" accept="image/*" />
+        <label for="train-images">Pilih gambar (bisa beberapa sekaligus)</label>
+        <input id="train-images" type="file" accept="image/*" multiple />
 
-        <label for="train-label-input">Persentase lipid droplet (%):</label>
-        <input type="number" id="train-label-input" min="0" max="100" step="0.1" />
+        <label for="train-label">
+          Persentase lipid droplet (%)
+          <span class="hint">(nilai ini diaplikasikan ke semua gambar dalam batch upload ini)</span>
+        </label>
+        <input id="train-label" type="number" min="0" max="100" value="30" />
 
-        <button id="add-training-sample">Tambah ke Dataset</button>
+        <button id="btn-add-to-dataset">Tambah ke Dataset</button>
 
-        <div id="train-image-preview-wrapper">
-          <p>Preview gambar:</p>
-          <canvas id="train-image-preview" width="128" height="128"></canvas>
-        </div>
+        <p id="train-add-status" class="status-text"></p>
 
-        <p id="train-dataset-info">Dataset: 0 sampel</p>
+        <h4>Ringkasan Dataset Lokal</h4>
+        <div id="dataset-summary"></div>
       </div>
 
       <div class="card">
-        <h3>2. Latih Model</h3>
-        <label for="train-epochs-input">Jumlah epoch:</label>
-        <input type="number" id="train-epochs-input" value="20" min="1" max="200" />
+        <h3>2. Latih / Update Model</h3>
+        <p>
+          Model akan dilatih menggunakan semua sampel di dataset lokal.
+          Waktu training tergantung jumlah gambar & performa komputer.
+        </p>
 
-        <label for="train-batch-size-input">Batch size:</label>
-        <input type="number" id="train-batch-size-input" value="8" min="1" max="64" />
+        <label for="epochs">Jumlah epoch</label>
+        <input id="epochs" type="number" min="1" max="200" value="20" />
 
-        <button id="train-model-btn">Train Model</button>
-        <button id="save-model-btn">Save Model</button>
-        <button id="load-model-btn">Load Model</button>
+        <label for="batch-size">Batch size</label>
+        <input id="batch-size" type="number" min="1" max="64" value="8" />
 
-        <pre id="train-log"></pre>
+        <button id="btn-train-model">Train / Retrain Model</button>
+
+        <div id="training-log" class="log-box"></div>
+      </div>
+
+      <div class="card danger">
+        <h3>3. Manajemen Dataset</h3>
+        <p>Opsi ini akan menghapus semua data training yang tersimpan di browser ini.</p>
+        <button id="btn-clear-dataset" class="danger-button">
+          Hapus semua sampel training lokal
+        </button>
+        <p id="clear-status" class="status-text"></p>
       </div>
     </section>
 
-    <!-- ANALYSIS PANEL -->
-    <section id="analysis-panel" class="panel">
-      <h2>Analysis</h2>
+    <!-- TAB ANALYSIS -->
+    <section id="tab-analysis" class="tab-content">
+      <h2>Analisa Citra</h2>
       <p>
-        Upload wet mount hepatopancreas image and let the trained model estimate lipid droplet percentage.
+        Gunakan model yang sudah dilatih untuk memprediksi persentase lipid droplet
+        dari satu atau beberapa citra wet mount hepatopankreas.
       </p>
 
       <div class="card">
-        <h3>1. Gambar untuk Analisa</h3>
-        <label for="analysis-image-input">Gambar (JPG/PNG):</label>
-        <input type="file" id="analysis-image-input" accept="image/*" />
-
-        <div id="analysis-image-preview-wrapper">
-          <p>Preview gambar:</p>
-          <canvas id="analysis-image-preview" width="128" height="128"></canvas>
-        </div>
+        <h3>1. Pilih Gambar untuk Analisa</h3>
+        <input id="analysis-images" type="file" accept="image/*" multiple />
+        <button id="btn-run-analysis">Jalankan Analisa</button>
+        <p id="analysis-status" class="status-text"></p>
       </div>
 
       <div class="card">
-        <h3>2. Hasil Prediksi</h3>
-        <button id="run-analysis-btn">Jalankan Analisa</button>
-        <p id="analysis-result">Belum ada hasil.</p>
+        <h3>2. Hasil Analisa</h3>
+        <table id="analysis-results-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Preview</th>
+              <th>Nama File</th>
+              <th>Prediksi Lipid Droplet (%)</th>
+            </tr>
+          </thead>
+          <tbody id="analysis-results-body">
+            <!-- Hasil akan di-inject via JS -->
+          </tbody>
+        </table>
       </div>
     </section>
   </main>
 
   <footer>
-    <small>
-      All computation runs in your browser using TensorFlow.js. No images are uploaded to any server.
-    </small>
+    <p>
+      Prototype sederhana – model berjalan sepenuhnya di browser (TensorFlow.js).
+      Dataset & model disimpan lokal di browser ini.
+    </p>
   </footer>
-
-  <!-- Scripts -->
-  <script src="model.js"></script>
-  <script src="app.js"></script>
 </body>
 </html>
