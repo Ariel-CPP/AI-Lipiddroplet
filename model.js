@@ -1,144 +1,202 @@
-// model.js
+// js/model.js
+// Namespace global untuk model TensorFlow.js
 
-// Global model variable
-let lipidModel = null;
+window.LipidModel = (function () {
+  const MODEL_NAME = "lipid-droplet-model-v1";
+  const IMAGE_SIZE = 128;
 
-// Konfigurasi input gambar
-const IMG_WIDTH = 128;
-const IMG_HEIGHT = 128;
-const IMG_CHANNELS = 3;
+  function buildModel() {
+    const model = tf.sequential();
+    model.add(
+      tf.layers.conv2d({
+        inputShape: [IMAGE_SIZE, IMAGE_SIZE, 3],
+        filters: 16,
+        kernelSize: 3,
+        activation: "relu",
+      })
+    );
+    model.add(tf.layers.maxPooling2d({ poolSize: 2, strides: 2 }));
 
-// Membuat model baru (CNN kecil untuk regresi)
-function createNewModel() {
-  const model = tf.sequential();
+    model.add(
+      tf.layers.conv2d({
+        filters: 32,
+        kernelSize: 3,
+        activation: "relu",
+      })
+    );
+    model.add(tf.layers.maxPooling2d({ poolSize: 2, strides: 2 }));
 
-  model.add(
-    tf.layers.conv2d({
-      inputShape: [IMG_HEIGHT, IMG_WIDTH, IMG_CHANNELS],
-      filters: 16,
-      kernelSize: 3,
-      activation: "relu",
-    })
-  );
-  model.add(tf.layers.maxPooling2d({ poolSize: 2 }));
+    model.add(
+      tf.layers.conv2d({
+        filters: 64,
+        kernelSize: 3,
+        activation: "relu",
+      })
+    );
+    model.add(tf.layers.maxPooling2d({ poolSize: 2, strides: 2 }));
 
-  model.add(
-    tf.layers.conv2d({
-      filters: 32,
-      kernelSize: 3,
-      activation: "relu",
-    })
-  );
-  model.add(tf.layers.maxPooling2d({ poolSize: 2 }));
+    model.add(tf.layers.flatten());
+    model.add(
+      tf.layers.dense({
+        units: 64,
+        activation: "relu",
+      })
+    );
+    model.add(tf.layers.dropout({ rate: 0.3 }));
+    model.add(
+      tf.layers.dense({
+        units: 1,
+        activation: "linear", // output nilai 0–1 (skala %/100)
+      })
+    );
 
-  model.add(
-    tf.layers.conv2d({
-      filters: 64,
-      kernelSize: 3,
-      activation: "relu",
-    })
-  );
-  model.add(tf.layers.maxPooling2d({ poolSize: 2 }));
+    model.compile({
+      optimizer: tf.train.adam(0.0005),
+      loss: "meanSquaredError",
+      metrics: ["mae"],
+    });
 
-  model.add(tf.layers.flatten());
-
-  model.add(
-    tf.layers.dense({
-      units: 64,
-      activation: "relu",
-    })
-  );
-
-  // Output 1 unit (persentase lipid droplet, 0–100)
-  model.add(
-    tf.layers.dense({
-      units: 1,
-      activation: "linear",
-    })
-  );
-
-  model.compile({
-    optimizer: tf.train.adam(0.0005),
-    loss: "meanSquaredError",
-    metrics: ["mae"],
-  });
-
-  return model;
-}
-
-// Inisialisasi model: coba load dari IndexedDB, kalau gagal buat baru
-async function initModel() {
-  if (lipidModel) return lipidModel;
-
-  try {
-    lipidModel = await tf.loadLayersModel("indexeddb:lipid-droplet-model");
-    console.log("Model loaded from IndexedDB.");
-  } catch (err) {
-    console.log("No saved model found. Creating a new model.", err);
-    lipidModel = createNewModel();
+    return model;
   }
 
-  return lipidModel;
-}
-
-// Train model dengan dataset
-async function trainLipidModel(trainXs, trainYs, epochs, batchSize, onBatchEndCb) {
-  if (!lipidModel) {
-    lipidModel = createNewModel();
+  async function loadExistingModel() {
+    try {
+      const model = await tf.loadLayersModel(
+        "indexeddb://" + MODEL_NAME
+      );
+      return model;
+    } catch (e) {
+      console.warn("Tidak menemukan model tersimpan:", e.message);
+      return null;
+    }
   }
 
-  const history = await lipidModel.fit(trainXs, trainYs, {
-    epochs,
-    batchSize,
-    shuffle: true,
-    validationSplit: 0.2,
-    callbacks: {
-      onEpochEnd: async (epoch, logs) => {
-        if (onBatchEndCb) {
-          onBatchEndCb(epoch, logs);
-        }
-        await tf.nextFrame();
+  async function saveModel(model) {
+    await model.save("indexeddb://" + MODEL_NAME);
+  }
+
+  function imageDataUrlToTensor(dataUrl) {
+    return tf.tidy(() => {
+      const image = new Image();
+      image.src = dataUrl;
+
+      // Catatan: kita tidak bisa synchronous menunggu image onload di sini,
+      // jadi fungsi ini tidak dipakai untuk DataURL langsung di training.
+      // Di training kita lewat <img> yang sudah onload.
+      return null;
+    });
+  }
+
+  async function htmlImageToTensor(imgElement) {
+    return tf.tidy(() => {
+      const tensor = tf.browser.fromPixels(imgElement);
+      const resized = tf.image.resizeBilinear(
+        tensor,
+        [IMAGE_SIZE, IMAGE_SIZE]
+      );
+      const normalized = resized.div(255.0);
+      return normalized;
+    });
+  }
+
+  async function trainOnDataset(dataset, epochs, batchSize, onLog) {
+    if (!dataset || dataset.length === 0) {
+      throw new Error("Dataset kosong, tidak bisa training.");
+    }
+
+    // Siapkan elemen <img> untuk diisi satu per satu (agar bisa jadi tensor)
+    const tempImg = document.createElement("img");
+
+    const xsArray = [];
+    const ysArray = [];
+
+    // Konversi dataset ke tensor
+    for (let i = 0; i < dataset.length; i++) {
+      const sample = dataset[i];
+      const { label, dataUrl } = sample;
+
+      // Pastikan label 0–100 → skala 0–1
+      const yVal = Math.max(0, Math.min(100, Number(label))) / 100.0;
+
+      // Load sinkron-ish: kita bungkus dalam Promise
+      /* eslint-disable no-await-in-loop */
+      await new Promise((resolve, reject) => {
+        tempImg.onload = () => {
+          const xTensor = tf.tidy(() => {
+            const fromPixels = tf.browser.fromPixels(tempImg);
+            const resized = tf.image.resizeBilinear(
+              fromPixels,
+              [IMAGE_SIZE, IMAGE_SIZE]
+            );
+            const normalized = resized.div(255.0);
+            return normalized;
+          });
+          xsArray.push(xTensor);
+          ysArray.push(yVal);
+          resolve();
+        };
+        tempImg.onerror = reject;
+        tempImg.src = dataUrl;
+      });
+      /* eslint-enable no-await-in-loop */
+    }
+
+    const xs = tf.stack(xsArray); // [N, H, W, 3]
+    const ys = tf.tensor1d(ysArray);
+
+    xsArray.forEach((t) => t.dispose());
+
+    let model = await loadExistingModel();
+    if (!model) {
+      model = buildModel();
+    }
+
+    await model.fit(xs, ys, {
+      epochs,
+      batchSize,
+      shuffle: true,
+      callbacks: {
+        onEpochEnd: async (epoch, logs) => {
+          if (onLog) {
+            const loss = logs.loss?.toFixed(4);
+            const mae = logs.mae?.toFixed(4);
+            onLog(
+              `Epoch ${epoch + 1}/${epochs} — loss: ${loss}, mae: ${mae}`
+            );
+          }
+          await tf.nextFrame();
+        },
       },
-    },
-  });
+    });
 
-  return history;
-}
+    xs.dispose();
+    ys.dispose();
 
-// Prediksi persentase lipid droplet dari 1 tensor gambar [H,W,3]
-async function predictLipidPercentage(imgTensor) {
-  if (!lipidModel) {
-    lipidModel = await initModel();
+    await saveModel(model);
+    return model;
   }
 
-  // bentuk tensor [1, H, W, 3]
-  const input = imgTensor.expandDims(0); // add batch dimension
+  async function predictOnImageElement(model, imgElement) {
+    return tf.tidy(() => {
+      const tensor = tf.browser.fromPixels(imgElement);
+      const resized = tf.image.resizeBilinear(
+        tensor,
+        [IMAGE_SIZE, IMAGE_SIZE]
+      );
+      const normalized = resized.div(255.0);
+      const batched = normalized.expandDims(0); // [1, H, W, 3]
 
-  const pred = lipidModel.predict(input);
-  const value = (await pred.data())[0];
-
-  input.dispose();
-  pred.dispose();
-
-  // clamp ke 0–100
-  const clamped = Math.max(0, Math.min(100, value));
-  return clamped;
-}
-
-// Simpan model ke IndexedDB
-async function saveLipidModel() {
-  if (!lipidModel) {
-    throw new Error("Model belum dibuat.");
+      const pred = model.predict(batched);
+      const value = pred.dataSync()[0]; // dalam skala 0–1
+      return value * 100.0;
+    });
   }
-  await lipidModel.save("indexeddb:lipid-droplet-model");
-}
 
-// Helper: preprocess image to [128,128,3], float32, 0-1
-function preprocessImageToTensor(img) {
-  return tf.tidy(() => {
-    let tensor = tf.browser.fromPixels(img);
-    tensor = tf.image.resizeBilinear(tensor, [IMG_HEIGHT, IMG_WIDTH]);
-    tensor = tensor.toFloat().div(255.0);
-    return tensor;
-  });
-}
+  return {
+    buildModel,
+    loadExistingModel,
+    saveModel,
+    trainOnDataset,
+    predictOnImageElement,
+  };
+})();
