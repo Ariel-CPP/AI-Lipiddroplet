@@ -1,163 +1,135 @@
 // model.js
-// Simple neural-like regression model for lipid droplet percentage prediction.
-// Uses 32x32 grayscale features (1024 inputs) and linear regression with
-// gradient descent in the browser.
+// Lightweight image-based regression model for lipid droplet percentage.
+// All math is done directly in JS; no external libraries are used.
 
-const NeuralModel = (function () {
-  const IMAGE_SIZE = 32;
-  const INPUT_SIZE = IMAGE_SIZE * IMAGE_SIZE;
+class LipidModel {
+  constructor() {
+    // two simple features: mean intensity and standard deviation of intensity
+    this.inputSize = 2;
 
-  let weights = new Float32Array(INPUT_SIZE);
-  let bias = 0;
-  let learningRate = 0.01;
-  let trainedSamples = 0;
-  let initialized = false;
+    // weights and bias initialisation
+    this.weights = new Array(this.inputSize).fill(0);
+    this.bias = 0;
 
-  function initialize() {
-    if (initialized) return;
-    for (let i = 0; i < INPUT_SIZE; i++) {
-      // small random initialization
-      weights[i] = (Math.random() - 0.5) * 0.01;
-    }
-    bias = 0;
-    initialized = true;
+    // training statistics
+    this.trainedSamples = 0;
+    this.lastUpdated = null;
+    this.learningRate = 0.02;
+    this.version = "1.0.0";
   }
 
-  function getConfig() {
-    return {
-      inputSize: INPUT_SIZE,
-      imageSize: IMAGE_SIZE,
-      learningRate,
-      weights: Array.from(weights),
-      bias,
-      trainedSamples,
-    };
+  /**
+   * Extracts simple features from ImageData.
+   * Features:
+   *  0 - mean grayscale intensity (0–1)
+   *  1 - standard deviation of intensity
+   */
+  extractFeaturesFromImageData(imageData) {
+    const data = imageData.data;
+    const n = data.length / 4;
+
+    if (n === 0) return [0, 0];
+
+    let sum = 0;
+    let sumSq = 0;
+
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+
+      // simple grayscale conversion
+      const gray = (0.299 * r + 0.587 * g + 0.114 * b) / 255.0;
+      sum += gray;
+      sumSq += gray * gray;
+    }
+
+    const mean = sum / n;
+    const variance = Math.max(sumSq / n - mean * mean, 0);
+    const std = Math.sqrt(variance);
+
+    return [mean, std];
   }
 
-  function loadFromObject(obj) {
-    if (!obj) return;
-    if (obj.inputSize !== INPUT_SIZE) {
-      console.warn(
-        "NeuralModel: input size mismatch (expected " +
-          INPUT_SIZE +
-          ", got " +
-          obj.inputSize +
-          "). Ignoring imported model."
-      );
-      return;
+  /**
+   * Predicts lipid droplet percentage from feature vector.
+   */
+  predictFromFeatures(features) {
+    let z = this.bias;
+    for (let i = 0; i < this.inputSize; i++) {
+      z += this.weights[i] * (features[i] ?? 0);
     }
-    weights = new Float32Array(obj.weights || []);
-    if (weights.length !== INPUT_SIZE) {
-      console.warn("NeuralModel: weight length mismatch. Reinitializing.");
-      weights = new Float32Array(INPUT_SIZE);
-      initialized = false;
-      initialize();
-    }
-    bias = typeof obj.bias === "number" ? obj.bias : 0;
-    learningRate =
-      typeof obj.learningRate === "number" ? obj.learningRate : learningRate;
-    trainedSamples =
-      typeof obj.trainedSamples === "number" ? obj.trainedSamples : 0;
-    initialized = true;
-  }
 
-  function predictFromFeatures(features) {
-    initialize();
-    if (!features || features.length !== INPUT_SIZE) {
-      throw new Error(
-        "NeuralModel: features size mismatch (expected " +
-          INPUT_SIZE +
-          ", got " +
-          (features ? features.length : "null") +
-          ")"
-      );
-    }
-    let sum = bias;
-    for (let i = 0; i < INPUT_SIZE; i++) {
-      sum += weights[i] * features[i];
-    }
-    // Clamp to [0, 100] as % output
-    const y = Math.max(0, Math.min(100, sum));
+    // clamp output to 0–100
+    const y = Math.max(0, Math.min(100, z));
     return y;
   }
 
-  function trainOnSample(features, targetPercent) {
-    initialize();
-    const y = predictFromFeatures(features);
-    const error = y - targetPercent; // derivative of (y - t)^2
-    const factor = 2 * learningRate * error;
+  /**
+   * Online gradient-descent training for one sample.
+   * target: known lipid droplet percentage (0–100).
+   */
+  trainOnFeatures(features, target) {
+    const yPred = this.predictFromRaw(features);
+    const error = yPred - target;
 
-    for (let i = 0; i < INPUT_SIZE; i++) {
-      weights[i] -= factor * features[i];
+    // gradient of MSE w.r.t weights and bias
+    for (let i = 0; i < this.inputSize; i++) {
+      this.weights[i] -= this.learningRate * error * (features[i] ?? 0);
     }
-    bias -= factor;
-    trainedSamples += 1;
+    this.bias -= this.learningRate * error;
 
-    return { prediction: y, error };
+    this.trainedSamples += 1;
+    this.lastUpdated = new Date().toISOString();
   }
 
-  function getTrainedSamples() {
-    return trainedSamples;
+  /**
+   * Internal prediction without clamping (for GD).
+   */
+  predictFromRaw(features) {
+    let z = this.bias;
+    for (let i = 0; i < this.inputSize; i++) {
+      z += this.weights[i] * (features[i] ?? 0);
+    }
+    return z;
   }
 
-  function getImageSize() {
-    return IMAGE_SIZE;
-  }
-
-  function describe() {
+  /**
+   * Serialise the model as a plain JSON object.
+   */
+  toJSON() {
     return {
-      imageSize: IMAGE_SIZE,
-      inputSize: INPUT_SIZE,
-      trainedSamples,
-      learningRate,
+      inputSize: this.inputSize,
+      weights: this.weights,
+      bias: this.bias,
+      trainedSamples: this.trainedSamples,
+      lastUpdated: this.lastUpdated,
+      learningRate: this.learningRate,
+      version: this.version
     };
   }
 
-  // Convert an image File into a Float32Array of grayscale features
-  async function imageFileToFeatures(file) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const img = new Image();
-        img.onload = () => {
-          try {
-            const canvas = document.createElement("canvas");
-            canvas.width = IMAGE_SIZE;
-            canvas.height = IMAGE_SIZE;
-            const ctx = canvas.getContext("2d");
-            ctx.drawImage(img, 0, 0, IMAGE_SIZE, IMAGE_SIZE);
-            const imageData = ctx.getImageData(0, 0, IMAGE_SIZE, IMAGE_SIZE);
-            const data = imageData.data;
-            const features = new Float32Array(INPUT_SIZE);
+  /**
+   * Replace model parameters from a JSON object.
+   */
+  static fromJSON(json) {
+    const model = new LipidModel();
+    if (!json) return model;
 
-            for (let i = 0, j = 0; i < data.length; i += 4, j++) {
-              const r = data[i];
-              const g = data[i + 1];
-              const b = data[i + 2];
-              const gray = (r + g + b) / (3 * 255); // normalized 0–1
-              features[j] = gray;
-            }
-            resolve(features);
-          } catch (err) {
-            reject(err);
-          }
-        };
-        img.onerror = (e) => reject(e);
-        img.src = reader.result;
-      };
-      reader.onerror = (e) => reject(e);
-      reader.readAsDataURL(file);
-    });
+    model.inputSize = json.inputSize ?? model.inputSize;
+    model.weights = Array.isArray(json.weights)
+      ? json.weights.slice()
+      : model.weights;
+    model.bias = typeof json.bias === "number" ? json.bias : model.bias;
+    model.trainedSamples =
+      typeof json.trainedSamples === "number" ? json.trainedSamples : 0;
+    model.lastUpdated = json.lastUpdated ?? null;
+    model.learningRate =
+      typeof json.learningRate === "number"
+        ? json.learningRate
+        : model.learningRate;
+    model.version = json.version ?? model.version;
+
+    return model;
   }
-
-  return {
-    getConfig,
-    loadFromObject,
-    predictFromFeatures,
-    trainOnSample,
-    getTrainedSamples,
-    getImageSize,
-    describe,
-    imageFileToFeatures,
-  };
-})();
+}
