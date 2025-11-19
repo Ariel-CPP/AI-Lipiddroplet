@@ -1,153 +1,186 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>CP | Hepatopancreas Lipid Droplet – Training</title>
-  <link rel="stylesheet" href="style.css" />
-</head>
-<body>
-  <div class="app-shell">
-    <!-- Top navigation bar -->
-    <header class="app-header">
-      <div class="brand">
-        <div class="brand-logo">CP</div>
-        <div class="brand-text">
-          <div class="brand-company">Central Proteina Prima</div>
-          <div class="brand-app-name">Lipid Droplet AI – Hepatopancreas Wet Mount</div>
-        </div>
-      </div>
-
-      <nav class="app-nav">
-        <a href="training.html" class="nav-link nav-link-active">Training</a>
-        <a href="analysis.html" class="nav-link">Analysis</a>
-      </nav>
-    </header>
-
-    <main class="app-main">
-      <!-- Page title -->
-      <section class="page-header">
-        <h1>Training Interface</h1>
-        <p class="page-subtitle">
-          Upload wet mount hepatopancreas images and assign known lipid droplet percentages. 
-          The model will be updated in your browser and can be exported or imported as a JSON database 
-          to share with other users.
-        </p>
-
-        <div class="kpi-row">
-          <div class="kpi-card">
-            <div class="kpi-label">Total trained images</div>
-            <div class="kpi-value" id="total-trained">0</div>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-label">Model status</div>
-            <div class="kpi-value kpi-value-muted" id="model-info">Not trained</div>
-          </div>
-        </div>
-      </section>
-
-      <!-- Training card -->
-      <section class="card">
-        <div class="card-header">
-          <h2>1. Upload Training Images</h2>
-          <p class="card-description">
-            Select one or more images. For each image, provide the ground-truth lipid droplet percentage (0–100%) based on your histological assessment.
-          </p>
-        </div>
-
-        <div class="card-body">
-          <!-- file input -->
-          <div class="form-group">
-            <label class="form-label" for="training-images-input">Select training images</label>
-            <div class="input-row">
-              <input
-                type="file"
-                id="training-images-input"
-                accept="image/*"
-                multiple
-                class="input-file"
-              />
-            </div>
-            <p class="help-text">
-              You can select multiple images at once. The tool will ask for the lipid droplet percentage for each image.
-            </p>
-          </div>
-
-          <!-- list of selected images and percentage inputs (JS will populate) -->
-          <div id="training-image-list" class="image-list">
-            <!-- dynamically filled by app.js -->
-          </div>
-
-          <div class="card-actions">
-            <button id="train-button" class="btn btn-primary">
-              Train model on selected images
-            </button>
-          </div>
-
-          <div class="status-bar" id="training-status">
-            <!-- status messages from JS -->
-          </div>
-        </div>
-      </section>
-
-      <!-- Database card -->
-      <section class="card">
-        <div class="card-header">
-          <h2>2. Model Database</h2>
-          <p class="card-description">
-            The model and its metadata are stored locally in your browser. 
-            You can export the database as a JSON file and share it with other users, 
-            who can then import it to obtain the same trained model.
-          </p>
-        </div>
-
-        <div class="card-body card-body-split">
-          <!-- Download -->
-          <div class="card-column">
-            <h3 class="card-subtitle">Download database</h3>
-            <p class="card-description">
-              Export the current neural model and statistics as a JSON file.
-            </p>
-
-            <button id="download-db-button" class="btn btn-outline">
-              Download JSON database
-            </button>
-          </div>
-
-          <!-- Upload -->
-          <div class="card-column">
-            <h3 class="card-subtitle">Upload database</h3>
-            <p class="card-description">
-              Import a database JSON file from another user to reuse the same trained model.
-            </p>
-
-            <div class="input-row">
-              <label class="btn btn-secondary btn-inline">
-                <span>Select JSON file</span>
-                <input
-                  type="file"
-                  id="upload-db-input"
-                  accept="application/json"
-                  class="input-file-hidden"
-                />
-              </label>
-              <span id="upload-db-filename" class="filename-label">No file selected</span>
-            </div>
-
-            <div class="status-bar status-bar-inline" id="db-status">
-              <!-- database import status -->
+  <head>
+    <meta charset="UTF-8" />
+    <title>CP Lipid Droplet AI – Training</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <!-- HEADER -->
+      <header class="cp-header">
+        <div class="cp-header-inner">
+          <div class="brand-area">
+            <div class="brand-logo">CP</div>
+            <div class="brand-text">
+              <div class="brand-title">CP PRIMA</div>
+              <div class="brand-subtitle">
+                Lipid Droplet AI – Hepatopancreas Wet Mount
+              </div>
             </div>
           </div>
+
+          <nav class="nav-tabs">
+            <a href="index.html" class="nav-btn active">
+              <span class="dot"></span>
+              Training
+            </a>
+            <a href="analysis.html" class="nav-btn">Analysis</a>
+          </nav>
         </div>
-      </section>
-    </main>
+      </header>
 
-    <footer class="app-footer">
-      © 2025 CP Prima – Experimental Tool for Shrimp Hepatopancreas Lipid Assessment
-    </footer>
-  </div>
+      <!-- MAIN -->
+      <main class="main-content">
+        <div class="page-container">
+          <section class="page-card">
+            <div class="page-title-row">
+              <div>
+                <h1 class="page-title">Training Interface</h1>
+                <p class="page-subtitle">
+                  Upload hepatopancreas wet mount images and assign known lipid
+                  droplet percentages. The browser-side neural model will be
+                  updated and can be exported or imported as a JSON database.
+                </p>
+              </div>
 
-  <script src="model.js"></script>
-  <script src="storage.js"></script>
-  <script src="app.js"></script>
-</body>
+              <div class="badge-strip">
+                <div class="badge-pill">
+                  <span class="info-label">Model status</span>
+                  <span id="modelStatusText"><strong>Not trained</strong></span>
+                </div>
+                <div class="badge-pill">
+                  <span class="info-label">Total trained images</span>
+                  <span id="totalImagesTrained"><strong>0</strong></span>
+                </div>
+              </div>
+            </div>
+
+            <div class="info-panel">
+              <span class="info-label">Hint</span>
+              <span
+                >You can train the model incrementally. New images will be added
+                on top of the existing database.</span
+              >
+            </div>
+
+            <!-- SECTION 1: UPLOAD TRAINING IMAGES -->
+            <div class="section-block">
+              <div class="section-title-row">
+                <div class="section-index">1</div>
+                <div class="section-title">Upload Training Images</div>
+              </div>
+              <p class="section-desc">
+                Select one or more images. For each image, you will be asked to
+                provide the ground-truth lipid droplet percentage (0–100%)
+                according to your histological assessment.
+              </p>
+
+              <div class="form-grid">
+                <div class="file-input-group">
+                  <div class="file-input-label">Select training images</div>
+                  <div class="input-row">
+                    <!-- keep the same id/name used by JS -->
+                    <label class="btn btn-outline" for="trainingImagesInput">
+                      Choose files…
+                    </label>
+                    <span id="trainingFilesLabel" class="info-stat">
+                      No file chosen
+                    </span>
+                    <input
+                      type="file"
+                      id="trainingImagesInput"
+                      accept="image/*"
+                      multiple
+                    />
+                  </div>
+                  <small class="section-desc">
+                    Multiple images can be selected at once. The tool will ask
+                    for the lipid droplet percentage for each image.
+                  </small>
+                </div>
+
+                <div style="display: flex; align-items: flex-end">
+                  <button
+                    id="trainButton"
+                    class="btn btn-primary"
+                    type="button"
+                  >
+                    Train model on selected images
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- SECTION 2: MODEL DATABASE -->
+            <div class="section-block">
+              <div class="section-title-row">
+                <div class="section-index">2</div>
+                <div class="section-title">Model Database</div>
+              </div>
+              <p class="section-desc">
+                The model weights and metadata are stored locally in your
+                browser. You can export or import them as a JSON file to share
+                with other users or reuse the same trained model on another
+                computer.
+              </p>
+
+              <div class="form-grid">
+                <!-- DOWNLOAD -->
+                <div class="card-subsection">
+                  <h3>Download database</h3>
+                  <p>
+                    Export the current neural model and statistics as a JSON
+                    file. This file can be shared by e-mail or any other
+                    channel.
+                  </p>
+                  <button
+                    id="downloadDbButton"
+                    type="button"
+                    class="btn btn-primary"
+                  >
+                    Download JSON database
+                  </button>
+                </div>
+
+                <!-- UPLOAD -->
+                <div class="card-subsection">
+                  <h3>Upload database</h3>
+                  <p>
+                    Import a JSON database file previously exported from this
+                    tool to reuse the same trained model.
+                  </p>
+                  <div class="input-row">
+                    <label class="btn btn-outline" for="uploadDbInput">
+                      Choose JSON file…
+                    </label>
+                    <span id="uploadDbLabel" class="info-stat">
+                      No file chosen
+                    </span>
+                    <input
+                      type="file"
+                      id="uploadDbInput"
+                      accept="application/json"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </main>
+
+      <!-- FOOTER -->
+      <footer class="cp-footer">
+        <div class="cp-footer-inner">
+          © 2025 CP Prima – Experimental Tool for Shrimp Hepatopancreas Lipid
+          Assessment
+        </div>
+      </footer>
+    </div>
+
+    <script src="model.js"></script>
+    <script src="storage.js"></script>
+    <script src="app.js"></script>
+  </body>
 </html>
