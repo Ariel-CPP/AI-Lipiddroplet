@@ -1,247 +1,256 @@
-// app.js
+// js/app.js
+// Menghubungkan UI dengan storage & model
 
-// Dataset training disimpan di memori browser (selama halaman terbuka)
-const trainImages = []; // array of tf.Tensor3D
-const trainLabels = []; // array of number
+document.addEventListener("DOMContentLoaded", () => {
+  const statSampleCount = document.getElementById("stat-sample-count");
+  const statModelStatus = document.getElementById("stat-model-status");
 
-// Elemen DOM
-const tabTraining = document.getElementById("tab-training");
-const tabAnalysis = document.getElementById("tab-analysis");
-const trainingPanel = document.getElementById("training-panel");
-const analysisPanel = document.getElementById("analysis-panel");
+  const tabButtons = document.querySelectorAll(".tab-button");
+  const tabContents = document.querySelectorAll(".tab-content");
 
-const trainImageInput = document.getElementById("train-image-input");
-const trainLabelInput = document.getElementById("train-label-input");
-const addTrainingSampleBtn = document.getElementById("add-training-sample");
-const trainImagePreviewCanvas = document.getElementById("train-image-preview");
-const trainDatasetInfo = document.getElementById("train-dataset-info");
+  const trainImagesInput = document.getElementById("train-images");
+  const trainLabelInput = document.getElementById("train-label");
+  const btnAddToDataset = document.getElementById("btn-add-to-dataset");
+  const trainAddStatus = document.getElementById("train-add-status");
+  const datasetSummary = document.getElementById("dataset-summary");
 
-const trainEpochsInput = document.getElementById("train-epochs-input");
-const trainBatchSizeInput = document.getElementById("train-batch-size-input");
-const trainModelBtn = document.getElementById("train-model-btn");
-const saveModelBtn = document.getElementById("save-model-btn");
-const loadModelBtn = document.getElementById("load-model-btn");
-const trainLog = document.getElementById("train-log");
+  const epochsInput = document.getElementById("epochs");
+  const batchSizeInput = document.getElementById("batch-size");
+  const btnTrainModel = document.getElementById("btn-train-model");
+  const trainingLog = document.getElementById("training-log");
 
-const analysisImageInput = document.getElementById("analysis-image-input");
-const analysisImagePreviewCanvas = document.getElementById("analysis-image-preview");
-const runAnalysisBtn = document.getElementById("run-analysis-btn");
-const analysisResult = document.getElementById("analysis-result");
+  const btnClearDataset = document.getElementById("btn-clear-dataset");
+  const clearStatus = document.getElementById("clear-status");
 
-// Context canvas
-const trainPreviewCtx = trainImagePreviewCanvas.getContext("2d");
-const analysisPreviewCtx = analysisImagePreviewCanvas.getContext("2d");
+  const analysisImagesInput = document.getElementById("analysis-images");
+  const btnRunAnalysis = document.getElementById("btn-run-analysis");
+  const analysisStatus = document.getElementById("analysis-status");
+  const analysisResultsBody = document.getElementById("analysis-results-body");
 
-// ------------------------ TAB SWITCHING ------------------------
+  let currentModel = null;
 
-tabTraining.addEventListener("click", () => {
-  tabTraining.classList.add("active");
-  tabAnalysis.classList.remove("active");
-  trainingPanel.classList.add("active");
-  analysisPanel.classList.remove("active");
-});
-
-tabAnalysis.addEventListener("click", () => {
-  tabAnalysis.classList.add("active");
-  tabTraining.classList.remove("active");
-  analysisPanel.classList.add("active");
-  trainingPanel.classList.remove("active");
-});
-
-// ------------------------ UTIL: READ & PREVIEW IMAGE ------------------------
-
-function loadImageFileToCanvas(file, canvas, callback) {
-  if (!file) return;
-
-  const reader = new FileReader();
-  const img = new Image();
-
-  reader.onload = (e) => {
-    img.onload = () => {
-      const ctx = canvas.getContext("2d");
-      // clear
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      // draw image terkecil dengan menjaga rasio
-      const scale = Math.min(canvas.width / img.width, canvas.height / img.height);
-      const w = img.width * scale;
-      const h = img.height * scale;
-      const x = (canvas.width - w) / 2;
-      const y = (canvas.height - h) / 2;
-      ctx.drawImage(img, x, y, w, h);
-
-      if (callback) {
-        callback(img);
-      }
-    };
-    img.src = e.target.result;
-  };
-
-  reader.readAsDataURL(file);
-}
-
-// ------------------------ TRAINING: ADD SAMPLE ------------------------
-
-trainImageInput.addEventListener("change", () => {
-  const file = trainImageInput.files[0];
-  if (!file) return;
-
-  loadImageFileToCanvas(file, trainImagePreviewCanvas, (img) => {
-    // nothing else here; we actually create tensor only when "Tambah ke Dataset" ditekan
-  });
-});
-
-addTrainingSampleBtn.addEventListener("click", () => {
-  const file = trainImageInput.files[0];
-  if (!file) {
-    alert("Pilih gambar training terlebih dahulu.");
-    return;
-  }
-
-  const label = parseFloat(trainLabelInput.value);
-  if (isNaN(label) || label < 0 || label > 100) {
-    alert("Masukkan persentase lipid droplet antara 0–100.");
-    return;
-  }
-
-  // Baca lagi file untuk dibuat tensor
-  const reader = new FileReader();
-  const img = new Image();
-
-  reader.onload = (e) => {
-    img.onload = () => {
-      const tensor = preprocessImageToTensor(img); // dari model.js
-      trainImages.push(tensor);
-      trainLabels.push(label);
-
-      trainDatasetInfo.textContent = `Dataset: ${trainImages.length} sampel`;
-      trainLabelInput.value = "";
-      trainImageInput.value = "";
-      trainPreviewCtx.clearRect(0, 0, trainImagePreviewCanvas.width, trainImagePreviewCanvas.height);
-    };
-    img.src = e.target.result;
-  };
-
-  reader.readAsDataURL(file);
-});
-
-// ------------------------ TRAINING: RUN TRAINING ------------------------
-
-trainModelBtn.addEventListener("click", async () => {
-  if (trainImages.length < 3) {
-    alert("Minimal butuh beberapa (≥3) sampel untuk mulai training.");
-    return;
-  }
-
-  const epochs = parseInt(trainEpochsInput.value, 10) || 20;
-  const batchSize = parseInt(trainBatchSizeInput.value, 10) || 8;
-
-  const logLines = [];
-  function log(text) {
-    logLines.push(text);
-    trainLog.textContent = logLines.join("\n");
-    trainLog.scrollTop = trainLog.scrollHeight;
-  }
-
-  log("Menginisialisasi model...");
-  await initModel();
-
-  // Buat tensor X dan y dari array
-  log("Menyiapkan dataset...");
-  const xs = tf.stack(trainImages); // shape [N, H, W, 3]
-  const ys = tf.tensor2d(trainLabels.map((v) => [v])); // shape [N, 1]
-
-  log(`Mulai training: epochs=${epochs}, batchSize=${batchSize}, samples=${trainImages.length}`);
-
-  try {
-    await trainLipidModel(xs, ys, epochs, batchSize, (epoch, logs) => {
-      log(
-        `Epoch ${epoch + 1}/${epochs} - loss=${logs.loss?.toFixed(4)} - val_loss=${logs.val_loss?.toFixed(
-          4
-        )} - mae=${logs.mae?.toFixed(4)}`
-      );
+  // === Tabs handling ===
+  tabButtons.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const targetId = btn.dataset.target;
+      tabButtons.forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      tabContents.forEach((c) => {
+        c.classList.toggle("active", c.id === targetId);
+      });
     });
-    log("Training selesai.");
-  } catch (err) {
-    console.error(err);
-    log("Terjadi error saat training: " + err.message);
-  } finally {
-    xs.dispose();
-    ys.dispose();
-  }
-});
-
-// ------------------------ TRAINING: SAVE / LOAD MODEL ------------------------
-
-saveModelBtn.addEventListener("click", async () => {
-  try {
-    await saveLipidModel();
-    alert("Model berhasil disimpan ke IndexedDB browser.");
-  } catch (err) {
-    console.error(err);
-    alert("Gagal menyimpan model: " + err.message);
-  }
-});
-
-loadModelBtn.addEventListener("click", async () => {
-  try {
-    await initModel();
-    alert("Model berhasil diload (dari IndexedDB atau baru dibuat).");
-  } catch (err) {
-    console.error(err);
-    alert("Gagal meload model: " + err.message);
-  }
-});
-
-// ------------------------ ANALYSIS: IMAGE PREVIEW ------------------------
-
-analysisImageInput.addEventListener("change", () => {
-  const file = analysisImageInput.files[0];
-  if (!file) return;
-
-  loadImageFileToCanvas(file, analysisImagePreviewCanvas, (img) => {
-    // Nothing else; tensor dibuat saat analisa
   });
-});
 
-// ------------------------ ANALYSIS: RUN PREDICTION ------------------------
+  // === Stats ===
+  function refreshStats() {
+    const stats = window.LipidStorage.getStats();
+    statSampleCount.textContent = stats.count;
 
-runAnalysisBtn.addEventListener("click", async () => {
-  const file = analysisImageInput.files[0];
-  if (!file) {
-    alert("Pilih gambar untuk dianalisa.");
-    return;
+    if (currentModel) {
+      statModelStatus.textContent = "Model tersedia di browser";
+    } else {
+      statModelStatus.textContent = "Belum ada model";
+    }
+
+    updateDatasetSummary();
   }
 
-  // Pastikan model tersedia
-  await initModel();
+  function updateDatasetSummary() {
+    const dataset = window.LipidStorage.loadDataset();
+    if (dataset.length === 0) {
+      datasetSummary.textContent = "Belum ada sampel training tersimpan.";
+      return;
+    }
 
-  const reader = new FileReader();
-  const img = new Image();
+    const first = dataset[0];
+    const last = dataset[dataset.length - 1];
 
-  reader.onload = (e) => {
-    img.onload = async () => {
-      const tensor = preprocessImageToTensor(img);
-      try {
-        const pred = await predictLipidPercentage(tensor);
-        analysisResult.textContent = `Perkiraan persentase lipid droplet: ${pred.toFixed(1)}%`;
-      } catch (err) {
-        console.error(err);
-        analysisResult.textContent = "Terjadi error saat analisa: " + err.message;
-      } finally {
-        tensor.dispose();
-      }
-    };
-    img.src = e.target.result;
-  };
+    const labels = dataset.map((d) => Number(d.label));
+    const minLabel = Math.min(...labels);
+    const maxLabel = Math.max(...labels);
 
-  reader.readAsDataURL(file);
-});
+    datasetSummary.innerHTML = `
+      <p>Total sampel: <strong>${dataset.length}</strong></p>
+      <p>Rentang label lipid droplet: <strong>${minLabel.toFixed(
+        1
+      )}% – ${maxLabel.toFixed(1)}%</strong></p>
+      <p>Contoh file pertama: <code>${first.name}</code></p>
+      <p>Contoh file terakhir: <code>${last.name}</code></p>
+    `;
+  }
 
-// ------------------------ INIT ------------------------
+  // === Load model jika ada ===
+  async function tryLoadModel() {
+    currentModel = await window.LipidModel.loadExistingModel();
+    refreshStats();
+  }
 
-// Saat page load, coba inisialisasi model (akan create baru kalau belum ada)
-window.addEventListener("load", () => {
-  initModel().then(() => {
-    console.log("Model siap digunakan.");
+  // === Helper: baca file gambar jadi dataURL ===
+  function fileToDataUrl(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  // === Tambah batch gambar ke dataset ===
+  btnAddToDataset.addEventListener("click", async () => {
+    const files = Array.from(trainImagesInput.files || []);
+    const labelValue = Number(trainLabelInput.value);
+
+    if (files.length === 0) {
+      trainAddStatus.textContent = "Silakan pilih minimal satu gambar.";
+      return;
+    }
+    if (isNaN(labelValue) || labelValue < 0 || labelValue > 100) {
+      trainAddStatus.textContent =
+        "Label persentase lipid droplet harus antara 0–100.";
+      return;
+    }
+
+    btnAddToDataset.disabled = true;
+    trainAddStatus.textContent = "Membaca file dan menyimpan ke dataset...";
+
+    const samples = [];
+    for (let i = 0; i < files.length; i++) {
+      /* eslint-disable no-await-in-loop */
+      const dataUrl = await fileToDataUrl(files[i]);
+      /* eslint-enable no-await-in-loop */
+      samples.push({
+        id: Date.now().toString() + "_" + i,
+        name: files[i].name,
+        label: labelValue,
+        dataUrl,
+      });
+    }
+
+    const newCount = window.LipidStorage.addSamples(samples);
+    trainAddStatus.textContent = `Berhasil menambah ${samples.length} sampel. Total sampel sekarang: ${newCount}.`;
+
+    trainImagesInput.value = "";
+    refreshStats();
+    btnAddToDataset.disabled = false;
   });
+
+  // === Training model ===
+  btnTrainModel.addEventListener("click", async () => {
+    const dataset = window.LipidStorage.loadDataset();
+    if (dataset.length === 0) {
+      trainingLog.textContent =
+        "Dataset kosong. Tambahkan sampel training terlebih dahulu.";
+      return;
+    }
+
+    const epochs = Math.max(
+      1,
+      Math.min(200, Number(epochsInput.value) || 20)
+    );
+    const batchSize = Math.max(
+      1,
+      Math.min(64, Number(batchSizeInput.value) || 8)
+    );
+
+    btnTrainModel.disabled = true;
+    trainingLog.textContent = "";
+    appendLog(`Mulai training dengan ${dataset.length} sampel...`);
+    appendLog(`Epoch: ${epochs}, batch size: ${batchSize}`);
+
+    try {
+      const model = await window.LipidModel.trainOnDataset(
+        dataset,
+        epochs,
+        batchSize,
+        (msg) => appendLog(msg)
+      );
+      currentModel = model;
+      appendLog("Training selesai. Model tersimpan di IndexedDB.");
+    } catch (err) {
+      console.error(err);
+      appendLog("Terjadi error saat training: " + err.message);
+    } finally {
+      btnTrainModel.disabled = false;
+      refreshStats();
+    }
+  });
+
+  function appendLog(message) {
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString();
+    trainingLog.textContent += `[${timeStr}] ${message}\n`;
+    trainingLog.scrollTop = trainingLog.scrollHeight;
+  }
+
+  // === Clear dataset ===
+  btnClearDataset.addEventListener("click", () => {
+    if (
+      !confirm(
+        "Yakin ingin menghapus semua sampel training yang tersimpan di browser ini?"
+      )
+    ) {
+      return;
+    }
+    window.LipidStorage.clearDataset();
+    clearStatus.textContent = "Dataset lokal sudah dihapus.";
+    refreshStats();
+  });
+
+  // === Analisa (batch gambar) ===
+  btnRunAnalysis.addEventListener("click", async () => {
+    const files = Array.from(analysisImagesInput.files || []);
+    if (files.length === 0) {
+      analysisStatus.textContent =
+        "Silakan pilih minimal satu gambar untuk dianalisa.";
+      return;
+    }
+
+    if (!currentModel) {
+      analysisStatus.textContent =
+        "Model belum ada. Silakan training model terlebih dahulu di tab Training.";
+      return;
+    }
+
+    btnRunAnalysis.disabled = true;
+    analysisStatus.textContent =
+      "Mengolah gambar dan menjalankan prediksi...";
+
+    analysisResultsBody.innerHTML = "";
+
+    for (let i = 0; i < files.length; i++) {
+      /* eslint-disable no-await-in-loop */
+      const file = files[i];
+      const dataUrl = await fileToDataUrl(file);
+      const img = new Image();
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+        img.src = dataUrl;
+      });
+
+      const prediction = await window.LipidModel.predictOnImageElement(
+        currentModel,
+        img
+      );
+      const clamped = Math.max(0, Math.min(100, prediction));
+      const rounded = clamped.toFixed(1);
+
+      const row = document.createElement("tr");
+      row.innerHTML = `
+        <td>${i + 1}</td>
+        <td><img src="${dataUrl}" class="preview-img" /></td>
+        <td>${file.name}</td>
+        <td><strong>${rounded}</strong> %</td>
+      `;
+      analysisResultsBody.appendChild(row);
+      /* eslint-enable no-await-in-loop */
+    }
+
+    analysisStatus.textContent = "Analisa selesai.";
+    btnRunAnalysis.disabled = false;
+  });
+
+  // Init
+  tryLoadModel();
+  refreshStats();
 });
