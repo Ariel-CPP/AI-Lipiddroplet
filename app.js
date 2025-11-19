@@ -1,326 +1,332 @@
 // app.js
-// Connects the UI for both Training and Analysis pages with NeuralModel and Storage.
+// Page controller: detects whether we are on the training or analysis page
+// and attaches appropriate event handlers.
 
 document.addEventListener("DOMContentLoaded", () => {
-  const page = document.body.dataset.page;
-  if (page === "train") {
-    initTrainingPage();
-  } else if (page === "analyze") {
-    initAnalysisPage();
+  const pageType = document.body.getAttribute("data-page");
+  const model = StorageAPI.loadModel();
+
+  if (pageType === "training") {
+    setupTrainingPage(model);
+  } else if (pageType === "analysis") {
+    setupAnalysisPage(model);
   }
 });
 
-/* ===========================
-   Training page
-   =========================== */
+/**
+ * Utility: load an image file into ImageData with a fixed maximum size.
+ */
+function loadImageDataFromFile(file, maxSize = 160) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
 
-function initTrainingPage() {
-  let db = Storage.load();
-  if (db.model) {
-    NeuralModel.loadFromObject(db.model);
-  }
+        // keep aspect ratio but bound by maxSize
+        const scale = Math.min(
+          maxSize / img.width,
+          maxSize / img.height,
+          1.0
+        );
+        canvas.width = Math.max(1, Math.round(img.width * scale));
+        canvas.height = Math.max(1, Math.round(img.height * scale));
 
-  const trainImagesInput = document.getElementById("train-images");
-  const trainingList = document.getElementById("training-list");
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        resolve({ imageData, canvas });
+      };
+      img.onerror = () =>
+        reject(new Error("Failed to load image: " + file.name));
+      img.src = reader.result;
+    };
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
+/* -------------------- Training page -------------------- */
+
+function setupTrainingPage(model) {
+  const fileInput = document.getElementById("training-files");
+  const previewContainer = document.getElementById(
+    "training-preview-container"
+  );
   const trainButton = document.getElementById("train-button");
-  const trainStatus = document.getElementById("train-status");
-  const trainFileCount = document.getElementById("train-file-count");
-  const trainedCountEl = document.getElementById("trained-count");
-  const dbInfoEl = document.getElementById("db-info");
-  const downloadDbBtn = document.getElementById("download-db");
-  const uploadDbInput = document.getElementById("upload-db");
+  const totalTrainedEl = document.getElementById("total-trained");
+  const modelInfoEl = document.getElementById("model-info");
+  const downloadDbButton = document.getElementById("download-db-button");
+  const uploadDbInput = document.getElementById("upload-db-input");
+  const uploadDbButton = document.getElementById("upload-db-button");
   const uploadDbStatus = document.getElementById("upload-db-status");
 
-  function updateStats() {
-    const stats = db.stats || { totalSamples: 0 };
-    trainedCountEl.textContent = stats.totalSamples || 0;
+  updateTrainingStats(model, totalTrainedEl, modelInfoEl);
 
-    const desc = NeuralModel.describe();
-    dbInfoEl.textContent =
-      "Image size " +
-      desc.imageSize +
-      "×" +
-      desc.imageSize +
-      ", trained samples: " +
-      desc.trainedSamples;
-  }
+  let selectedFiles = [];
 
-  updateStats();
-
-  trainImagesInput.addEventListener("change", () => {
-    const files = Array.from(trainImagesInput.files || []);
-    trainingList.innerHTML = "";
-    if (!files.length) {
-      trainFileCount.textContent = "No files selected.";
-      return;
-    }
-    trainFileCount.textContent = files.length + " file(s) selected.";
-
-    files.forEach((file, index) => {
-      const item = document.createElement("div");
-      item.className = "training-item";
-
-      const header = document.createElement("div");
-      header.className = "training-item-header";
-
-      const img = document.createElement("img");
-      img.className = "training-thumb";
-      img.alt = file.name;
-      const reader = new FileReader();
-      reader.onload = () => {
-        img.src = reader.result;
-      };
-      reader.readAsDataURL(file);
-
-      const meta = document.createElement("div");
-      meta.className = "training-meta";
-
-      const filename = document.createElement("div");
-      filename.className = "training-filename";
-      filename.textContent = file.name;
-
-      const size = document.createElement("div");
-      size.className = "training-size";
-      size.textContent = Math.round(file.size / 1024) + " KB";
-
-      meta.appendChild(filename);
-      meta.appendChild(size);
-
-      header.appendChild(img);
-      header.appendChild(meta);
-
-      const inputRow = document.createElement("div");
-      inputRow.className = "training-input-row";
-
-      const label = document.createElement("label");
-      label.textContent = "Lipid droplets (%)";
-
-      const input = document.createElement("input");
-      input.type = "number";
-      input.min = "0";
-      input.max = "100";
-      input.step = "0.1";
-      input.className = "percent-input";
-      input.placeholder = "e.g. 35";
-
-      // attach index for later
-      input.dataset.fileIndex = String(index);
-
-      inputRow.appendChild(label);
-      inputRow.appendChild(input);
-
-      item.appendChild(header);
-      item.appendChild(inputRow);
-
-      trainingList.appendChild(item);
-    });
+  fileInput.addEventListener("change", () => {
+    selectedFiles = Array.from(fileInput.files || []);
+    renderTrainingPreview(previewContainer, selectedFiles);
+    trainButton.disabled = selectedFiles.length === 0;
   });
 
   trainButton.addEventListener("click", async () => {
-    const files = Array.from(trainImagesInput.files || []);
-    if (!files.length) {
-      trainStatus.textContent = "No images selected for training.";
-      trainStatus.className = "status-text error";
-      return;
-    }
+    if (!selectedFiles.length) return;
 
-    // Collect label inputs
-    const inputs = trainingList.querySelectorAll(".percent-input");
-    const samples = [];
+    trainButton.disabled = true;
+    trainButton.textContent = "Training...";
 
-    inputs.forEach((input) => {
-      const idx = Number(input.dataset.fileIndex);
-      const value = parseFloat(input.value);
-      if (!Number.isNaN(value) && idx >= 0 && idx < files.length) {
-        samples.push({ file: files[idx], label: value });
+    // Read % inputs
+    const rows = previewContainer.querySelectorAll(".preview-item");
+    const tasks = [];
+
+    selectedFiles.forEach((file, idx) => {
+      const row = rows[idx];
+      const percentInput = row.querySelector("input[type='number']");
+      const rawPercent = Number(percentInput.value);
+
+      if (Number.isNaN(rawPercent)) {
+        return; // skip invalid
       }
+
+      const clipped = Math.max(0, Math.min(100, rawPercent));
+      percentInput.value = clipped;
+
+      tasks.push(
+        loadImageDataFromFile(file).then(({ imageData }) => {
+          const features = window.lipidModelHelpers.extractFeatures(
+            model,
+            imageData
+          );
+          model.trainOnFeatures(features, clipped);
+        })
+      );
     });
 
-    if (!samples.length) {
-      trainStatus.textContent =
-        "No valid percentage values entered. Please fill in the fields.";
-      trainStatus.className = "status-text error";
+    try {
+      await Promise.all(tasks);
+      StorageAPI.saveModel(model);
+      updateTrainingStats(model, totalTrainedEl, modelInfoEl);
+      trainButton.textContent = "Train model on selected images";
+    } catch (err) {
+      console.error(err);
+      alert("Error during training: " + err.message);
+      trainButton.textContent = "Train model on selected images";
+    } finally {
+      trainButton.disabled = selectedFiles.length === 0;
+    }
+  });
+
+  downloadDbButton.addEventListener("click", () => {
+    StorageAPI.downloadDatabase(model);
+  });
+
+  uploadDbButton.addEventListener("click", async () => {
+    const file = uploadDbInput.files && uploadDbInput.files[0];
+    if (!file) {
+      uploadDbStatus.textContent = "Please choose a JSON file first.";
       return;
     }
 
-    trainStatus.textContent = "Training model on " + samples.length + " image(s)...";
-    trainStatus.className = "status-text";
-
-    let processed = 0;
-    let totalAbsError = 0;
-
-    for (const sample of samples) {
-      try {
-        const features = await NeuralModel.imageFileToFeatures(sample.file);
-        const { prediction, error } = NeuralModel.trainOnSample(
-          features,
-          sample.label
-        );
-        processed += 1;
-        totalAbsError += Math.abs(error);
-      } catch (err) {
-        console.error("Error training on sample:", err);
-      }
-    }
-
-    const meanAbsError =
-      processed > 0 ? (totalAbsError / processed).toFixed(2) : "n/a";
-
-    db.model = NeuralModel.getConfig();
-    db.stats = db.stats || { totalSamples: 0 };
-    db.stats.totalSamples =
-      (db.stats.totalSamples || 0) + processed;
-    Storage.save(db);
-
-    updateStats();
-
-    trainStatus.textContent =
-      "Training completed for " +
-      processed +
-      " image(s). Approximate mean absolute error: " +
-      meanAbsError +
-      " %.";
-    trainStatus.className = "status-text success";
-  });
-
-  downloadDbBtn.addEventListener("click", () => {
-    const blob = Storage.exportToBlob(db);
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "lipid_droplet_ai_database.json";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  });
-
-  uploadDbInput.addEventListener("change", async () => {
-    const file = uploadDbInput.files && uploadDbInput.files[0];
-    if (!file) return;
-    uploadDbStatus.textContent = "Importing database...";
-    uploadDbStatus.className = "status-text";
-
+    uploadDbStatus.textContent = "Loading database...";
     try {
-      const imported = await Storage.importFromFile(file);
-      db = imported;
-      if (db.model) {
-        NeuralModel.loadFromObject(db.model);
-      }
-      updateStats();
-      uploadDbStatus.textContent = "Database imported successfully.";
-      uploadDbStatus.className = "status-text success";
+      const importedModel = await StorageAPI.importDatabaseFromFile(file);
+      Object.assign(model, importedModel); // shallow copy fields
+      StorageAPI.saveModel(model);
+      updateTrainingStats(model, totalTrainedEl, modelInfoEl);
+      uploadDbStatus.textContent = "Database loaded successfully.";
     } catch (err) {
       console.error(err);
       uploadDbStatus.textContent =
-        "Failed to import database: " + (err.message || "Unknown error");
-      uploadDbStatus.className = "status-text error";
-    } finally {
-      uploadDbInput.value = "";
+        "Failed to load database: " + (err.message || err.toString());
     }
   });
 }
 
-/* ===========================
-   Analysis page
-   =========================== */
-
-function initAnalysisPage() {
-  const db = Storage.load();
-  if (db.model) {
-    NeuralModel.loadFromObject(db.model);
+function renderTrainingPreview(container, files) {
+  container.innerHTML = "";
+  if (!files.length) {
+    container.textContent = "No images selected.";
+    return;
   }
 
-  const modelStatusEl = document.getElementById("analysis-model-status");
-  const analysisImagesInput = document.getElementById("analysis-images");
-  const analysisFileCount = document.getElementById("analysis-file-count");
-  const analyzeButton = document.getElementById("analyze-button");
-  const analysisStatus = document.getElementById("analysis-status");
-  const analysisResults = document.getElementById("analysis-results");
+  files.forEach((file) => {
+    const row = document.createElement("div");
+    row.className = "preview-item";
 
-  const desc = NeuralModel.describe();
-  if (db.model && desc.trainedSamples > 0) {
-    modelStatusEl.textContent =
-      "Loaded model with " + desc.trainedSamples + " trained samples.";
+    const img = document.createElement("img");
+    img.className = "preview-thumb";
+    img.alt = file.name;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+
+    const textBox = document.createElement("div");
+    const nameEl = document.createElement("div");
+    nameEl.className = "preview-filename";
+    nameEl.textContent = file.name;
+
+    const extra = document.createElement("div");
+    extra.className = "preview-extra";
+    extra.textContent = "Ground truth lipid droplet (%)";
+
+    textBox.appendChild(nameEl);
+    textBox.appendChild(extra);
+
+    const inputBox = document.createElement("div");
+    const input = document.createElement("input");
+    input.type = "number";
+    input.min = "0";
+    input.max = "100";
+    input.step = "0.1";
+    input.placeholder = "0–100";
+    input.className = "cp-input-number";
+    inputBox.appendChild(input);
+
+    row.appendChild(img);
+    row.appendChild(textBox);
+    row.appendChild(inputBox);
+    container.appendChild(row);
+  });
+}
+
+function updateTrainingStats(model, totalEl, infoEl) {
+  totalEl.textContent = String(model.trainedSamples || 0);
+  if (!model.trainedSamples) {
+    infoEl.textContent = "Not trained yet – please add training images.";
   } else {
-    modelStatusEl.textContent =
-      "No trained model found. Predictions may not be meaningful until training is performed or a database is imported.";
+    const dateStr = model.lastUpdated
+      ? new Date(model.lastUpdated).toLocaleString()
+      : "unknown time";
+    infoEl.textContent = `Version ${model.version}, learning rate ${
+      model.learningRate
+    }, last updated ${dateStr}`;
   }
+}
 
-  analysisImagesInput.addEventListener("change", () => {
-    const files = Array.from(analysisImagesInput.files || []);
-    if (!files.length) {
-      analysisFileCount.textContent = "No files selected.";
-      return;
-    }
-    analysisFileCount.textContent = files.length + " file(s) selected.";
+/* -------------------- Analysis page -------------------- */
+
+function setupAnalysisPage(model) {
+  const fileInput = document.getElementById("analysis-files");
+  const analyzeButton = document.getElementById("analyze-button");
+  const resultsContainer = document.getElementById("analysis-results");
+  const modelStatus = document.getElementById("analysis-model-status");
+
+  updateAnalysisModelStatus(model, modelStatus);
+
+  let selectedFiles = [];
+
+  fileInput.addEventListener("change", () => {
+    selectedFiles = Array.from(fileInput.files || []);
+    analyzeButton.disabled = selectedFiles.length === 0;
   });
 
   analyzeButton.addEventListener("click", async () => {
-    const files = Array.from(analysisImagesInput.files || []);
-    if (!files.length) {
-      analysisStatus.textContent = "No images selected for analysis.";
-      analysisStatus.className = "status-text error";
+    if (!selectedFiles.length) return;
+    if (!model.trainedSamples) {
+      alert(
+        "The model has not been trained yet. Please train or import a database on the Training page first."
+      );
       return;
     }
 
-    analysisResults.innerHTML = "";
-    analysisStatus.textContent = "Running analysis on " + files.length + " image(s)...";
-    analysisStatus.className = "status-text";
+    analyzeButton.disabled = true;
+    analyzeButton.textContent = "Analysing...";
 
-    let index = 0;
-    for (const file of files) {
-      index += 1;
-      try {
-        const features = await NeuralModel.imageFileToFeatures(file);
-        const prediction = NeuralModel.predictFromFeatures(features);
-        appendResultRow(analysisResults, index, file, prediction);
-      } catch (err) {
-        console.error("Analysis error for file", file.name, err);
-        appendResultRow(analysisResults, index, file, NaN, err);
-      }
+    const tasks = selectedFiles.map((file) =>
+      loadImageDataFromFile(file).then(({ imageData }) => {
+        const features = window.lipidModelHelpers.extractFeatures(
+          model,
+          imageData
+        );
+        const pred = model.predictFromFeatures(features);
+        return { file, prediction: pred };
+      })
+    );
+
+    try {
+      const results = await Promise.all(tasks);
+      renderAnalysisResults(resultsContainer, results);
+      analyzeButton.textContent = "Run analysis";
+    } catch (err) {
+      console.error(err);
+      alert("Error during analysis: " + err.message);
+      analyzeButton.textContent = "Run analysis";
+    } finally {
+      analyzeButton.disabled = selectedFiles.length === 0;
     }
-
-    analysisStatus.textContent = "Analysis completed for " + files.length + " image(s).";
-    analysisStatus.className = "status-text success";
   });
 }
 
-function appendResultRow(tbody, index, file, prediction, error) {
-  const tr = document.createElement("tr");
-
-  // index
-  const tdIdx = document.createElement("td");
-  tdIdx.textContent = String(index);
-  tr.appendChild(tdIdx);
-
-  // preview
-  const tdPreview = document.createElement("td");
-  const img = document.createElement("img");
-  img.className = "results-thumb";
-  img.alt = file.name;
-  const reader = new FileReader();
-  reader.onload = () => {
-    img.src = reader.result;
-  };
-  reader.readAsDataURL(file);
-  tdPreview.appendChild(img);
-  tr.appendChild(tdPreview);
-
-  // file name
-  const tdName = document.createElement("td");
-  tdName.textContent = file.name;
-  tr.appendChild(tdName);
-
-  // prediction
-  const tdPred = document.createElement("td");
-  if (Number.isNaN(prediction) || error) {
-    tdPred.textContent = "Error";
-    tdPred.style.color = "#d9534f";
+function updateAnalysisModelStatus(model, el) {
+  if (!model.trainedSamples) {
+    el.textContent =
+      "Model not trained yet. Please perform training or load a database on the Training page.";
   } else {
-    tdPred.textContent = prediction.toFixed(2) + " %";
+    el.textContent = `Model ready – trained on ${model.trainedSamples} image(s).`;
   }
-  tr.appendChild(tdPred);
-
-  tbody.appendChild(tr);
 }
+
+function renderAnalysisResults(container, results) {
+  if (!results.length) {
+    container.innerHTML = "<p>No images analysed.</p>";
+    return;
+  }
+
+  const table = document.createElement("table");
+  const thead = document.createElement("thead");
+  const trHead = document.createElement("tr");
+
+  ["Preview", "Filename", "Predicted lipid droplet (%)"].forEach((text) => {
+    const th = document.createElement("th");
+    th.textContent = text;
+    trHead.appendChild(th);
+  });
+  thead.appendChild(trHead);
+
+  const tbody = document.createElement("tbody");
+
+  results.forEach(({ file, prediction }) => {
+    const tr = document.createElement("tr");
+
+    const tdImg = document.createElement("td");
+    const img = document.createElement("img");
+    img.className = "results-thumb";
+    const reader = new FileReader();
+    reader.onload = () => {
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+    tdImg.appendChild(img);
+
+    const tdName = document.createElement("td");
+    tdName.textContent = file.name;
+
+    const tdPred = document.createElement("td");
+    tdPred.textContent = prediction.toFixed(1);
+
+    tr.appendChild(tdImg);
+    tr.appendChild(tdName);
+    tr.appendChild(tdPred);
+
+    tbody.appendChild(tr);
+  });
+
+  table.appendChild(thead);
+  table.appendChild(tbody);
+  container.innerHTML = "";
+  container.appendChild(table);
+}
+
+/* -------------------- Shared helpers -------------------- */
+
+window.lipidModelHelpers = {
+  extractFeatures(model, imageData) {
+    return model.extractFeaturesFromImageData(imageData);
+  }
+};
