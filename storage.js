@@ -1,50 +1,52 @@
-// js/storage.js
-// Namespace global untuk penyimpanan dataset training
+// storage.js
+// Menangani penyimpanan dataset training di localStorage
 
-window.LipidStorage = (function () {
-  const DATASET_KEY = "lipid_dataset_v1";
+const LipidStorage = (() => {
+  const STORAGE_KEY = "lipidDropletDataset_v1";
 
-  function loadDataset() {
-    const raw = localStorage.getItem(DATASET_KEY);
-    if (!raw) return [];
+  function loadSamples() {
     try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return [];
       const parsed = JSON.parse(raw);
-      if (!Array.isArray(parsed)) return [];
-      return parsed;
-    } catch (e) {
-      console.error("Gagal parse dataset dari localStorage:", e);
+      if (parsed && Array.isArray(parsed.samples)) {
+        return parsed.samples;
+      }
+      return [];
+    } catch (err) {
+      console.error("Gagal membaca localStorage:", err);
       return [];
     }
   }
 
-  function saveDataset(dataset) {
-    localStorage.setItem(DATASET_KEY, JSON.stringify(dataset));
-  }
-
-  function addSamples(samples) {
-    // samples: array of { id, name, label, dataUrl }
-    const dataset = loadDataset();
-    const merged = dataset.concat(samples);
-    saveDataset(merged);
-    return merged.length;
-  }
-
-  function clearDataset() {
-    localStorage.removeItem(DATASET_KEY);
-  }
-
-  function getStats() {
-    const ds = loadDataset();
-    return {
-      count: ds.length,
+  function saveSamples(samples) {
+    const payload = {
+      version: 1,
+      updatedAt: new Date().toISOString(),
+      samples: samples || [],
     };
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    } catch (err) {
+      console.error("Gagal menyimpan ke localStorage:", err);
+    }
+  }
+
+  function appendSamples(newSamples) {
+    const existing = loadSamples();
+    const merged = existing.concat(newSamples || []);
+    saveSamples(merged);
+    return merged;
+  }
+
+  function getSampleCount() {
+    return loadSamples().length;
   }
 
   return {
-    loadDataset,
-    saveDataset,
-    addSamples,
-    clearDataset,
-    getStats,
+    loadSamples,
+    saveSamples,
+    appendSamples,
+    getSampleCount,
   };
 })();
