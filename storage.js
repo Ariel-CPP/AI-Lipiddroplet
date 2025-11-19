@@ -1,52 +1,113 @@
 // storage.js
-// Menangani penyimpanan dataset training di localStorage
+// Handling the local "database" of training samples and model state.
+//
+// Structure:
+// {
+//   version: 1,
+//   createdAt: "...",
+//   samples: [{ features: [...], labelPercent: number, filename: string }, ...],
+//   modelState: { ... from LipidModel.getModelState() ... }
+// }
 
-const LipidStorage = (() => {
-  const STORAGE_KEY = "lipidDropletDataset_v1";
+const LipidStorage = (function () {
+  "use strict";
 
-  function loadSamples() {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return [];
-      const parsed = JSON.parse(raw);
-      if (parsed && Array.isArray(parsed.samples)) {
-        return parsed.samples;
+  const DB_KEY = "lipid_ai_database_v1";
+  let db = {
+    version: 1,
+    createdAt: new Date().toISOString(),
+    samples: [],
+    modelState: null,
+  };
+  let loaded = false;
+
+  function load() {
+    if (loaded) return;
+    const raw = window.localStorage.getItem(DB_KEY);
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (parsed && Array.isArray(parsed.samples)) {
+          db = parsed;
+        }
+      } catch (e) {
+        console.warn("Failed to parse stored database, resetting.", e);
       }
-      return [];
-    } catch (err) {
-      console.error("Gagal membaca localStorage:", err);
-      return [];
     }
+    loaded = true;
   }
 
-  function saveSamples(samples) {
-    const payload = {
-      version: 1,
-      updatedAt: new Date().toISOString(),
-      samples: samples || [],
-    };
+  function persist() {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-    } catch (err) {
-      console.error("Gagal menyimpan ke localStorage:", err);
+      window.localStorage.setItem(DB_KEY, JSON.stringify(db));
+    } catch (e) {
+      console.warn("Failed to save database to localStorage.", e);
     }
   }
 
-  function appendSamples(newSamples) {
-    const existing = loadSamples();
-    const merged = existing.concat(newSamples || []);
-    saveSamples(merged);
-    return merged;
+  function getSamples() {
+    load();
+    return db.samples;
+  }
+
+  function addSample(sample) {
+    load();
+    db.samples.push(sample);
+    persist();
+  }
+
+  function clearSamples() {
+    load();
+    db.samples = [];
+    persist();
+  }
+
+  function getModelState() {
+    load();
+    return db.modelState;
+  }
+
+  function setModelState(state) {
+    load();
+    db.modelState = state;
+    persist();
   }
 
   function getSampleCount() {
-    return loadSamples().length;
+    load();
+    return db.samples.length;
+  }
+
+  function exportToJsonString() {
+    load();
+    return JSON.stringify(db, null, 2);
+  }
+
+  function importFromJsonString(jsonString) {
+    try {
+      const parsed = JSON.parse(jsonString);
+      if (!parsed || !Array.isArray(parsed.samples)) {
+        throw new Error("Invalid database format.");
+      }
+      db = parsed;
+      loaded = true;
+      persist();
+      return true;
+    } catch (e) {
+      console.error("Failed to import database:", e);
+      return false;
+    }
   }
 
   return {
-    loadSamples,
-    saveSamples,
-    appendSamples,
+    load,
+    getSamples,
+    addSample,
+    clearSamples,
+    getModelState,
+    setModelState,
     getSampleCount,
+    exportToJsonString,
+    importFromJsonString,
   };
 })();
